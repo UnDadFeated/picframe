@@ -105,6 +105,7 @@ DEFAULT_CONFIG = {
                      ['country']],
         'geo_key': 'this_needs_to@be_changed',  # use your email address
         'db_file': '~/picframe_data/data/pictureframe.db3',
+        'bad_files_db': '~/picframe_data/data/bad_files.db3',
         'portrait_pairs': False,
         'deleted_pictures': '~/DeletedPictures',
         'update_interval': 2.0,
@@ -244,7 +245,8 @@ class Model:
                                                     model_config['update_interval'],
                                                     model_config['portrait_pairs'],
                                                     viewer_config.get('enable_smart_cache', False),
-                                                    viewer_config.get('date_range_days', 15))
+                                                    viewer_config.get('date_range_days', 15),
+                                                    os.path.expanduser(model_config.get('bad_files_db', '~/picframe_data/data/bad_files.db3')))
         self.__deleted_pictures = model_config['deleted_pictures']
         self.__no_files_img = os.path.expanduser(model_config['no_files_img'])
         self.__sort_cols = model_config['sort_cols']
@@ -268,8 +270,10 @@ class Model:
                 'loading': self.__reload_files,
                 'current_file': None,
                 'total_files_known': False,
+                'bad_files_count': 0,
             }
         cache_status = self.__image_cache.get_status()
+        bad_files = self.__image_cache.get_bad_files() if hasattr(self.__image_cache, 'get_bad_files') else []
         return {
             'file_count': cache_status.get('file_count', self.__number_of_files),
             'loading': self.__reload_files or cache_status.get('loading', False),
@@ -278,6 +282,7 @@ class Model:
             'scan_processed': cache_status.get('scan_processed', 0),
             'scan_percent': cache_status.get('scan_percent', 0.0),
             'total_files_known': True,
+            'bad_files_count': len(bad_files),
         }
     
     def is_cache_loading(self):

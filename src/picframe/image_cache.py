@@ -37,7 +37,8 @@ class ImageCache:
                      'EXIF LensModel': 'lens_model'}
 
     def __init__(self, picture_dir, follow_links, db_file, geo_reverse, update_interval,
-                 portrait_pairs=False, enable_smart_cache=False, date_range_days=15):
+                 portrait_pairs=False, enable_smart_cache=False, date_range_days=15,
+                 bad_files_db=None):
         # TODO these class methods will crash if Model attempts to instantiate this using a
         # different version from the latest one - should this argument be taken out?
         self.__modified_folders = []
@@ -61,6 +62,19 @@ class ImageCache:
         self.__db_write_lock = threading.Lock()  # lock to serialize db writes between threads
         # NB this is where the required schema is set
         self.__update_schema(5)
+
+        # Initialize bad files database for tracking corrupt/unreadable files
+        self.__bad_files_db = None
+        self.__bad_files_db_file = bad_files_db
+        if bad_files_db:
+            self.__bad_files_db = self.__create_open_db(bad_files_db)
+            self.__bad_files_db.execute('''CREATE TABLE IF NOT EXISTS bad_files (
+                file_path TEXT PRIMARY KEY,
+                error TEXT,
+                failed_at REAL
+            )''')
+            self.__bad_files_db.commit()
+            self.__logger.info("Bad files tracking enabled: %s", bad_files_db)
 
         self.__keep_looping = True
         self.__pause_looping = False
@@ -95,6 +109,42 @@ class ImageCache:
         self.__keep_looping = False
         while not self.__shutdown_completed:
             time.sleep(0.05)  # make function blocking to ensure staged shutdown
+        if self.__bad_files_db:
+            self.__bad_files_db.close()
+
+    def is_bad_file(self, file_path):
+        """Check if a file is in the bad files list."""
+        if not self.__bad_files_db:
+            return False
+        result = self.__bad_files_db.execute('SELECT 1 FROM bad_files WHERE file_path = ?', (file_path,)).fetchone()
+        return result is not None
+
+    def __add_bad_file(self, file_path, error):
+        """Add a file to the bad files list."""
+        if not self.__bad_files_db:
+            return
+        try:
+            self.__bad_files_db.execute(
+                'INSERT OR REPLACE INTO bad_files (file_path, error, failed_at) VALUES (?, ?, ?)',
+                (file_path, error, time.time())
+            )
+            self.__bad_files_db.commit()
+            self.__logger.info("Added to bad files: %s - %s", file_path, error)
+        except Exception as e:
+            self.__logger.warning("Failed to add bad file to DB: %s", e)
+
+    def get_bad_files(self):
+        """Return list of all bad files with error info."""
+        if not self.__bad_files_db:
+            return []
+        return list(self.__bad_files_db.execute('SELECT file_path, error, failed_at FROM bad_files ORDER BY failed_at DESC'))
+
+    def clear_bad_file(self, file_path):
+        """Remove a file from the bad files list (e.g., after user fixes it)."""
+        if not self.__bad_files_db:
+            return
+        self.__bad_files_db.execute('DELETE FROM bad_files WHERE file_path = ?', (file_path,))
+        self.__bad_files_db.commit()
 
     def purge_files(self):
         self.__purge_files = True
@@ -626,6 +676,9 @@ class ImageCache:
                     if self.__enable_smart_cache and not self.__filename_in_date_window(file):
                         continue
                     full_file = os.path.join(dir, file)
+                    # Skip files that have been marked as bad/unreadable
+                    if self.is_bad_file(full_file):
+                        continue
                     mod_tm = os.path.getmtime(full_file)
                     found = self.__db.execute(sql_select, (base, extension.lstrip("."), dir, mod_tm)).fetchone()
                     if not found:
@@ -646,12 +699,23 @@ class ImageCache:
         # Get the file's meta info and build the INSERT statement dynamically
         ext = os.path.splitext(file)[1].lower()
         if ext in VIDEO_EXTENSIONS:  # no exif info available
-            meta = self.__get_video_info(file)
+            try:
+                meta = self.__get_video_info(file)
+            except Exception as e:
+                self.__logger.warning('Video read failed for %s: %s', file, e)
+                self.__add_bad_file(file, str(e))
+                return
         else:
             try:
+                im = get_image_meta.GetImageMeta.get_image_object(file)
+                if im is None:
+                    self.__logger.warning('Image read failed for %s (returned None)', file)
+                    self.__add_bad_file(file, "Image.open returned None")
+                    return
                 meta = self.__get_exif_info(file)
             except Exception as e:
                 self.__logger.warning('Exif read failed for %s: %s', file, e)
+                self.__add_bad_file(file, str(e))
                 return
         meta_insert = self.__get_meta_sql_from_dict(meta)
         vals = list(meta.values())
