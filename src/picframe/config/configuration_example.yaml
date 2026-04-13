@@ -6,17 +6,39 @@ viewer:
   fps: 20.0                               # default=20.0
   background: [0.2, 0.2, 0.3, 1.0]        # default=[0.2, 0.2, 0.3, 1.0], RGBA to fill edges when fitting
   blend_type: "blend"                     # default="blend", choices={"blend", "burn", "bump"}, type of blend the shader can do
-  font_file: "~/picframe_data/data/fonts/NotoSans-Regular.ttf"
-  shader: "~/picframe_data/data/shaders/blend_new"
+  font_file: "/home/pi/picframe_data/data/fonts/NotoSans-Regular.ttf"
+  shader: "/home/pi/picframe_data/data/shaders/blend_new"
   show_text_fm: "%b %d, %Y"               # default "%b %d, %Y", format to show date over the image
-  show_text_tm: 20.0                      # default=20.0, time to show text over image with file name
-  show_text_sz: 40                        # default=40, text character size
-  show_text: "title caption name date folder location"  # default="title caption name date folder location", show text, include combination of words: title, caption name, date, location, folder
+  show_text_tm: 180.0                     # default=20.0, time to show text over image with file name
+  show_text_sz: 13                        # text character size for bottom-left photo filename/info
+  show_text: "name"                       # default="title caption name date folder location", show text, include combination of words: title, caption, name, date, location, folder, camera, lens, iso, aperture, exposure, white_balance, flash, metering, software, artist, copyright
   text_justify: "L"                       # text justification L, C or R
-  text_bkg_hgt: 0.25                      # default=0.25 (0.0-1.0), percentage of screen height for text background texture
-  text_opacity: 1.0                       # default=1.0 (0.0-1.0), alpha value of text overlay
-  text_x_margin: 100                      # default=100 pixels in from edge of screen or half screen if portrait pairs
-  text_y_margin: 0                        # default=0 this is additional margin to half the font height. A negative value would move text down
+  text_x_margin: 150                      # move filename text right to clear matte border
+  text_y_margin: 20                       # move filename text up to clear matte border  
+  text_x_position: null                   # absolute X position in pixels (overrides text_x_margin when text_position_mode='absolute')
+  text_y_position: null                  # absolute Y position in pixels (overrides text_y_margin when text_position_mode='absolute')
+  text_position_mode: "margin"            # default="margin", options: "margin" = use margins, "absolute" = use x/y_position
+  text_width: null                        # max width for text wrapping in pixels (null = no limit)
+  text_line_spacing: 1.2                  # line spacing multiplier for multi-line text
+  video_volume: 100                       # video volume 0-100 (set to 0 to mute)
+  slide_progress_show: True              # show slide countdown text
+  slide_progress_font_size: 11            # slide countdown text size
+  slide_progress_position: "top-right"   # slide countdown text position
+  slide_progress_x_offset: 70              # slide countdown text horizontal offset in pixels
+  slide_progress_y_offset: 50              # slide countdown text vertical offset in pixels
+  show_cache_indicator: True              # show cache building indicator on startup
+  cache_progress_position: "bottom-right" # cache bar position: top-right or bottom-right
+  cache_progress_x_offset: 60             # cache bar horizontal offset in pixels
+  cache_progress_y_offset: 50             # cache bar vertical offset in pixels
+  log_level: "INFO"                      # logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_max_days: 10                        # maximum days to keep log files
+  date_range_days: 15                     # show/cache files within +/- days of today (year-agnostic from YYYY-MM-DD_ prefix)
+  enable_date_filter: True                # enable date-based filtering (photos from around current date)
+  enable_smart_cache: True                # only cache files with YYYY-MM-DD_ filename in +/- date window
+  cache_refresh_timezone: "America/Los_Angeles" # timezone for midnight date-window refresh
+  cache_start_min_files: 0                # 0 = wait for cache build complete, >0 starts at threshold
+  text_bkg_hgt: 0.0                       # default=0.25 (0.0-1.0), percentage of screen height for text background texture
+  text_opacity: 0.5                       # default=1.0 (0.0-1.0), alpha value of text overlay
   fit: False                              # default=False, True => scale image so all visible and leave 'gaps'
                                           #                False => crop image so no 'gaps'
   video_fit_display: False                # default=False, True => scale video to match display size (video may have distortion)
@@ -26,8 +48,7 @@ viewer:
   display_y: 0                            # offset from top of screen (can be negative)
   display_w: null                         # width of display surface (null->None will use max returned by hardware)
   display_h: null                         # height of display surface
-  display_power: 2                        # default=0. choices={0, 1, 2, 3}, 0 => legacy `vcgencmd`, 1 => `xset`, 2 => 'wlr-randr', 3 => .../drm/card.../status (needed for multiple screens?) to blank the display
-  display_hdmi: "HDMI-A-1"                # default="HDMI-A-1" which is marked "HDMI 0" and is nearest the power. Change to "HDMI-A-2" if you use "HDMI 1"
+  display_power: 2                        # default=0. choices={0, 1, 2}, 0 will use legacy `vcgencmd`, 1 will use `xset`, 2 will use 'wlr-randr' to blank the display
   use_glx: False                          # default=False. Set to True on linux with xserver running. NB use_sdl2 might need to be False for this to work.
   use_sdl2: True                          # default=True. pysdl2 can use display without xserver, it should be installed as a dependency of pi3d
                                           # but might need `sudo apt install libsdl2-dev` if picframe gives errors about missing sdl2
@@ -41,7 +62,7 @@ viewer:
   inner_mat_border: 40                    # default=40, Minimum inner mat border in pixels (for styles that use it)
   outer_mat_use_texture: True             # default=True, True uses a texture for the outer mat. False creates a solid-color outer mat.
   inner_mat_use_texture: False            # default=False, True uses a texture for the inner mat. False creates a solid-color inner mat.
-  mat_resource_folder: "~/picframe_data/data/mat" # Folder containing mat image files
+  mat_resource_folder: "/home/pi/picframe_data/data/mat" # Folder containing mat image files
 
   show_clock: False                       # default=False, True shows clock overlay. False does not show clock overlay
   clock_justify: "R"                      # default="R", clock justification L, C, or R
@@ -58,10 +79,10 @@ viewer:
   geo_suppress_list: []                   # default=None, substrings to remove from the location text
 
 model:
-  pic_dir: "~/Pictures"                   # default="~/Pictures", root folder for images
-  deleted_pictures: "~/DeletedPictures"   # move deleted pictures here
+  pic_dir: "/mnt/nas"                     # default="/home/pi/Pictures", root folder for images
+  deleted_pictures: "/home/pi/DeletedPictures"   # move deleted pictures here
   follow_links: False                     # default=False, By default, picframe will not walk down into symbolic links that resolve to directories. Set follow_links to True to visit directories pointed to by symlinks, on systems that support them.
-  no_files_img: "~/picframe_data/data/no_pictures.jpg" # default="PictureFrame2020img.jpg", image to show if none selected
+  no_files_img: "/home/pi/picframe_data/data/no_pictures.jpg" # default="PictureFrame2020img.jpg", image to show if none selected
   subdirectory: ""                        # default="", subdir of pic_dir - can be changed by MQTT"
   recent_n: 7                             # default=7 (days), when shuffling file change date more recent than this number of days play before the rest
   reshuffle_num: 1                        # default=1, times through before reshuffling
@@ -90,14 +111,14 @@ model:
   load_geoloc: False                      # get location information from open street map NB if you switch this on (recommended)
   geo_key: "this_needs_to@be_changed"     # then you **MUST** change the geo_key to something unique to you
                                           # i.e. use your email address
-  locale: "en_US.utf8"                    # "locale -a" shows the installed locales which could used
+  locale: "en_GB.UTF-8"                    # "locale -a" shows the installed locales which could used
   key_list: [
     ["tourism","amenity","isolated_dwelling"],
     ["suburb","village"],
     ["city","county"],
     ["region","state","province"],
     ["country"]]
-  db_file: "~/picframe_data/data/pictureframe.db3" # database used by PictureFrame
+  db_file: "/home/pi/picframe_data/data/pictureframe.db3" # database used by PictureFrame
   portrait_pairs: False
   location_filter: ""                     # default="" filter clause for image location
   tags_filter: ""                         # default="" filter clause for image tags
@@ -116,8 +137,8 @@ mqtt:
   device_url: ""                          # if use_http==True, set url to picframe config page. Must be a valid url, or "" otherwise home assistant runs in an error.
 
 http:
-  use_http: False                         # default=False. Set True to enable http NB THIS SERVER IS FOR LOCAL NETWORK AND SHOULD NOT BE EXPOSED TO EXTERNAL ACCESS
-  path: "~/picframe_data/html"            # path to where html files are located
+  use_http: True                          # default=False. Set True to enable http NB THIS SERVER IS FOR LOCAL NETWORK AND SHOULD NOT BE EXPOSED TO EXTERNAL ACCESS
+  path: "/home/pi/picframe_data/html"            # path to where html files are located
   port: 9000                              # port used to serve pages by http server < 1024 requires root which is *bad* idea
   auth: false                             # default=False. Set True if enable basic auth for http
   username: admin                         # username for basic auth
