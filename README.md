@@ -102,6 +102,19 @@ Original source reference (base script/workflow inspiration):
 
 - https://www.thedigitalpictureframe.com/install-the-pi3d-pictureframe-software-with-one-click-2025-edition-raspberry-pi-2-3-4-5/
 
+Install script fixes and changes in this fork (relative to the original workflow):
+
+- Converted to a strict, resumable Bash flow with `set -euo pipefail` and explicit step progress tracking.
+- Added robust internet checks before package and pip operations.
+- Added systemd resume service logic (`install_script_service`) to continue after reboots and remove itself on completion.
+- Switched package install to include Bookworm/labwc runtime dependencies (`xwayland`, `labwc`, `wlr-randr`, `vlc`, `ffmpeg`, `python3-venv`).
+- Updated pip install target to this fork directly (`git+https://github.com/UnDadFeated/picframe.git@dev`).
+- Added idempotent creation of Picframe runtime folders and safer first-run initialization behavior.
+- Added explicit mosquitto config drop-in (`/etc/mosquitto/conf.d/picframe.conf`) and service enable/restart.
+- Replaced simple launch command with hardened `/home/pi/start_picframe.sh` (Wayland env, lock file, timestamped logging, duplicate-process guard).
+- Added labwc autostart and minimal `rc.xml` creation for fullscreen frame operation.
+- Added user-level `picframe.service` + `loginctl enable-linger pi` to keep startup behavior consistent across reboots.
+
 Fork adaptation details:
 
 - Script path: `scripts/install_picframe.sh`
