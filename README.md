@@ -117,7 +117,8 @@ Install script fixes and changes in this fork (relative to the original workflow
 
 Fork adaptation details:
 
-- Script path: `scripts/install_picframe.sh`
+- Script path: `install_picframe.sh` (repo root)
+- Backup copy: `scripts/install_picframe.sh`
 - Target branch: `dev`
 - It installs dependencies, sets up a venv, installs this fork, configures mosquitto, and configures labwc autostart.
 
@@ -136,8 +137,8 @@ sudo apt-get update && sudo apt-get install -y git
 cd /home/pi
 git clone -b dev https://github.com/UnDadFeated/picframe.git
 cd picframe
-chmod +x scripts/install_picframe.sh
-./scripts/install_picframe.sh
+chmod +x install_picframe.sh
+./install_picframe.sh
 ```
 
 The installer is reboot-resumable and logs progress to:
