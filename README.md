@@ -94,6 +94,43 @@ If you are running this fork directly, start with:
 - `src/picframe/config/configuration_example.yaml`
 - your existing `configuration.yaml` deployment values
 
+## Bookworm Lite install (Wolfgang script)
+
+This fork includes an end-to-end installer script for Raspberry Pi OS Bookworm Lite:
+
+- Script path: `scripts/wolfgang_install_bookworm_lite.sh`
+- Target branch: `dev`
+- It installs dependencies, sets up a venv, installs this fork, configures mosquitto, and configures labwc autostart.
+
+### Recommended base image
+
+- Raspberry Pi OS Lite (64-bit), Bookworm
+- Username: `pi`
+- Network online before running installer
+
+### Run installer
+
+On the Pi:
+
+```bash
+sudo apt-get update && sudo apt-get install -y git
+cd /home/pi
+git clone -b dev https://github.com/UnDadFeated/picframe.git
+cd picframe
+chmod +x scripts/wolfgang_install_bookworm_lite.sh
+./scripts/wolfgang_install_bookworm_lite.sh
+```
+
+The installer is reboot-resumable and logs progress to:
+
+- `/home/pi/install_progress.txt`
+- `/home/pi/install_log.txt`
+
+After completion, Picframe is started via:
+
+- `/home/pi/start_picframe.sh`
+- labwc autostart: `/home/pi/.config/labwc/autostart`
+
 ## Notes
 
 This fork is focused on practical day-to-day operation on a Raspberry Pi picture frame (display control, input handling, and playback reliability), while staying close to upstream structure.
