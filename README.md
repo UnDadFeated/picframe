@@ -152,4 +152,6 @@ After completion, Picframe is started via:
 
 ## Notes
 
+- Smart cache/date-window mode in this fork requires media filenames to begin with a `YYYY-MM-DD_` prefix for files to be loaded into the Picframe database. This applies to both images and videos when that filtering mode is enabled.
+
 This fork is focused on practical day-to-day operation on a Raspberry Pi picture frame (display control, input handling, and playback reliability), while staying close to upstream structure.
