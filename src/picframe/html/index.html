@@ -35,27 +35,38 @@
     </script>
     <script type="text/javascript" src="pf_functions.js"></script>
 
-    <main class="app-shell">
-        <header class="topbar">
-            <h1>Picframe Control Console</h1>
-            <div class="subline">Responsive dark dashboard for slideshow and cache controls</div>
+    <main class="container">
+        <header class="header">
+            <div class="logo">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span>Picframe</span>
+            </div>
+            <p class="tagline">Slideshow control panel</p>
         </header>
 
-        <section class="preview-card">
-            <div class="preview-title">Live Preview</div>
+        <section class="preview">
+            <div class="preview-header">
+                <h2>Live Preview</h2>
+                <div class="preview-links">
+                    <a href="/current_image" target="_blank" rel="noopener">Full Size</a>
+                    <a href="/current_image_original" target="_blank" rel="noopener">Original</a>
+                </div>
+            </div>
             <div class="preview-frame">
                 <img id="preview_img" src="/current_image" alt="Current slideshow frame" loading="eager" />
             </div>
-            <div class="preview-links">
-                <a href="/current_image" target="_blank" rel="noopener">Processed Image</a>
-                <a href="/current_image_original" target="_blank" rel="noopener">Original Image</a>
-            </div>
         </section>
 
-        <section class="controls-card">
-            <div class="controls-title">Controls</div>
+        <section class="controls">
+            <div class="controls-header">
+                <h2>Controls</h2>
+                <button id="upload_button" onclick="uploadValues()">Apply Changes</button>
+            </div>
             <div id="spans" class="controls-grid"></div>
-            <button id="upload_button" onclick="uploadValues()">Apply Updates</button>
         </section>
     </main>
 </body>

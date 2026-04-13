@@ -1,4 +1,3 @@
-
 async function getData() {
     const response = await fetch("/?all");
     return response.json();
@@ -8,23 +7,22 @@ async function getData() {
 function createSpans() {
     let span_div_html = "";
     Object.entries(ids).forEach(([element_id, element]) => {
-        let description = element_id.replace("_", " ");
+        let description = element_id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
         if (element.desc !== undefined) {
             description = element.desc;
         }
         if (element.type === "bool" || element.type === "action") {
-            span_div_html += `<button class="pf_span off" id="${element_id}" onclick="toggle('${element_id}')">${description}</button>`;
+            span_div_html += `<button class="control-btn" id="${element_id}" onclick="toggle('${element_id}')">${description}</button>`;
         } else {
             const width = TYPES[element.type][0];
-            span_div_html += `<label class="pf_span field"><span>${description}</span><input id="${element_id}" style="width:${width}ch;"></label>`;
+            span_div_html += `<label class="control-field"><span>${description}</span><input id="${element_id}" style="width:${width}ch;"></label>`;
         }
     });
     const span_div = document.getElementById("spans");
     span_div.innerHTML = span_div_html;
 
-    // make enter press upload button
     span_div.addEventListener("keyup", event => {
-        if (event.keyCode === 13) { // enter key
+        if (event.keyCode === 13) {
             event.preventDefault();
             uploadValues();
         }
@@ -38,17 +36,17 @@ function isNumeric(num) {
 
 
 function refreshPage() {
-    Object.entries(ids).forEach(([element_id, element]) => { //ids declared previous to this script in each page
+    Object.entries(ids).forEach(([element_id, element]) => {
         let docElement = document.getElementById(element_id);
         let value = element.val;
         if (isNumeric(value)) {
             value = parseFloat(value);
-            if (element.type === "number") { // integer or float
-                if (Math.floor(value) !== value) { //float
+            if (element.type === "number") {
+                if (Math.floor(value) !== value) {
                     value = value.toFixed(2);
                 }
             } else if (element.type === "date") {
-                date = new Date(value * 1000); // js uses ms
+                date = new Date(value * 1000);
                 value = `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
             }
         } else if (element.type === "bool") {
@@ -58,10 +56,10 @@ function refreshPage() {
                 value = false;
             }
         }
-        docElement.value = value; //TODO have some fields not changed by ids.val?
-        element.val = value; // reset to refreshed version TODO check this is necessary?
+        docElement.value = value;
+        element.val = value;
         if (element.type === "bool") {
-            docElement.className = (element.val ? "pf_span on" : "pf_span off");
+            docElement.className = (element.val ? "control-btn active" : "control-btn");
         }
     });
 }
@@ -95,17 +93,17 @@ function repeatRefresh() {
 
 function uploadValues() {
     let data_changed = false;
-    Object.entries(ids).forEach(([element_id, element]) => { //ids declared previous to this script in each page
-        if (element.fn === "setter" && element.type !== "bool") { // done by toggle function.
+    Object.entries(ids).forEach(([element_id, element]) => {
+        if (element.fn === "setter" && element.type !== "bool") {
             let docElement = document.getElementById(element_id);
             if (docElement.value != element.val) {
                 console.log("updating:" + element_id + "->" + docElement.value + ":was:" + element.val + ":");
                 element.val = docElement.value;
-                fetch(`/?${element_id}=${docElement.value}`).then(() => data_changed = true); //TODO do we need to refresh?
+                fetch(`/?${element_id}=${docElement.value}`).then(() => data_changed = true);
             }
         }
     });
-    if (data_changed) { //TODO - is this necessary in ids.val changed here?
+    if (data_changed) {
         refreshData();
     }
 }
@@ -113,78 +111,118 @@ function uploadValues() {
 
 function toggle(id) {
     let element = ids[id];
-    if (element.type === "bool") { //toggle val and class
+    if (element.type === "bool") {
         element.val = !(element.val);
     }
     let cmd = `/?${id}=${element.val}`
-    if (element.fn !== "setter") { // i.e. use fn
+    if (element.fn !== "setter") {
         cmd = `/?${element.fn}`;
         cmd = cmd.replace('$val', element.val);
     }
     let docElement = document.getElementById(id);
-    let css = (element.val ? "pf_span on" : "pf_span off"); // return to this
-    docElement.className = "pf_span flash";
+    let css = (element.val ? "control-btn active" : "control-btn");
+    docElement.className = "control-btn flash";
     console.log(cmd);
     fetch(cmd).then(() => afterFlash(docElement, css));
 }
 
 
 function afterFlash(element, css) {
-    element.className = css; //TODO slight time delay?
+    element.className = css;
 }
 
 
-// the super slimmed down python server doesn't load style sheets from file so this is
-// done using javascript!
 function setStyle() {
     const x = document.createElement("STYLE");
     const t = document.createTextNode(`
     :root {
-        --bg: #1f2329;
-        --panel: #2b3038;
-        --panel-2: #343a44;
-        --text: #e8edf2;
-        --muted: #98a2b3;
-        --accent: #4ea1ff;
-        --good: #2b9464;
-        --bad: #8f3a3a;
-        --flash: #c97b32;
-        --border: #3f4652;
+        --bg-primary: #1a1d21;
+        --bg-secondary: #25292e;
+        --bg-tertiary: #2d3238;
+        --text-primary: #e8eaed;
+        --text-secondary: #9aa0a6;
+        --border: #3c4043;
+        --accent: #8ab4f8;
+        --accent-hover: #aecbfa;
+        --active: #81c995;
+        --active-dim: #2e3b2f;
+        --inactive: #5f6368;
+        --inactive-dim: #3c3f44;
+        --flash: #fdd663;
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-        margin: 0;
-        background: radial-gradient(circle at top right, #2e3440 0%, var(--bg) 45%, #181b20 100%);
-        color: var(--text);
-        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        min-height: 100vh;
+        line-height: 1.5;
     }
-    .app-shell {
-        max-width: 1200px;
+    .container {
+        max-width: 1100px;
         margin: 0 auto;
-        padding: 16px;
-        display: grid;
-        gap: 16px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
     }
-    .topbar {
-        background: linear-gradient(135deg, var(--panel) 0%, var(--panel-2) 100%);
+    .header {
+        text-align: center;
+        padding: 20px 0;
+    }
+    .logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        font-size: 1.75rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    .logo svg {
+        color: var(--accent);
+    }
+    .tagline {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+        margin-top: 6px;
+    }
+    .preview {
+        background: var(--bg-secondary);
         border: 1px solid var(--border);
-        border-radius: 14px;
+        border-radius: 16px;
         padding: 16px;
     }
-    h1 { margin: 0; font-size: 1.4rem; letter-spacing: 0.02em; }
-    .subline { margin-top: 6px; color: var(--muted); font-size: 0.92rem; }
-    .preview-card, .controls-card {
-        background: linear-gradient(160deg, var(--panel) 0%, #242930 100%);
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 14px;
+    .preview-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
     }
-    .preview-title, .controls-title { font-weight: 600; margin-bottom: 10px; color: #cfd8e3; }
+    .preview-header h2 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    .preview-links {
+        display: flex;
+        gap: 14px;
+    }
+    .preview-links a {
+        color: var(--accent);
+        text-decoration: none;
+        font-size: 0.875rem;
+        transition: color 0.2s;
+    }
+    .preview-links a:hover {
+        color: var(--accent-hover);
+        text-decoration: underline;
+    }
     .preview-frame {
         border: 1px solid var(--border);
         border-radius: 12px;
         overflow: hidden;
-        background: #121417;
+        background: var(--bg-primary);
         aspect-ratio: 16/9;
     }
     #preview_img {
@@ -193,45 +231,106 @@ function setStyle() {
         object-fit: contain;
         display: block;
     }
-    .preview-links { margin-top: 10px; display: flex; gap: 12px; flex-wrap: wrap; }
-    .preview-links a { color: var(--accent); text-decoration: none; }
-    .preview-links a:hover { text-decoration: underline; }
+    .controls {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 16px;
+    }
+    .controls-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 14px;
+    }
+    .controls-header h2 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    #upload_button {
+        background: var(--accent);
+        color: var(--bg-primary);
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        padding: 8px 16px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: background 0.2s;
+    }
+    #upload_button:hover {
+        background: var(--accent-hover);
+    }
     .controls-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 8px;
-        margin-bottom: 12px;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 10px;
     }
-    button#upload_button {
-        background: var(--accent);
-        color: #0e1a28;
-        border: 0;
-        border-radius: 10px;
-        font-weight: 700;
-        padding: 10px 14px;
-        cursor: pointer;
-    }
-    .pf_span {
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 8px 10px;
-        color: var(--text);
-        background: #2a2f37;
-    }
-    .pf_span.field { display: flex; flex-direction: column; gap: 6px; }
-    .pf_span.field input {
+    .control-btn {
         border: 1px solid var(--border);
         border-radius: 8px;
-        background: #161a20;
-        color: var(--text);
-        padding: 6px 8px;
+        padding: 10px 12px;
+        color: var(--text-secondary);
+        background: var(--bg-tertiary);
+        cursor: pointer;
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: all 0.15s ease;
     }
-    .off { background-color: var(--bad); color: #f4dde0; }
-    .on { background-color: var(--good); color: #ddf8ea; }
-    .flash { background-color: var(--flash); color: #fdf2e5; }
-    @media (min-width: 900px) {
-        .app-shell { grid-template-columns: 1fr 1fr; }
-        .topbar { grid-column: 1 / -1; }
+    .control-btn:hover {
+        border-color: var(--accent);
+        color: var(--text-primary);
+    }
+    .control-btn.active {
+        background: var(--active-dim);
+        border-color: var(--active);
+        color: var(--active);
+    }
+    .control-btn.flash {
+        background: var(--flash);
+        border-color: var(--flash);
+        color: var(--bg-primary);
+    }
+    .control-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 10px 12px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+    }
+    .control-field span {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+    .control-field input {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        padding: 8px 10px;
+        font-size: 0.9rem;
+    }
+    .control-field input:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+    @media (max-width: 600px) {
+        .container { padding: 16px; }
+        .controls-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (min-width: 800px) {
+        .container { 
+            display: grid; 
+            grid-template-columns: 1fr 320px; 
+            align-items: start;
+        }
+        .header { grid-column: 1 / -1; }
+        .preview { grid-column: 1 / 2; }
+        .controls { grid-column: 2 / 3; grid-row: 2 / 4; }
     }
     `);
     x.appendChild(t);
