@@ -4,6 +4,10 @@ set -euo pipefail
 # Wolfgang installer for Raspberry Pi OS Bookworm Lite
 # Fork: https://github.com/UnDadFeated/picframe (dev branch)
 
+SCRIPT_PATH="$(realpath "$0")"
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+SCRIPT_NAME="install_picframe.sh"
+
 PROGRESS_FILE="/home/pi/install_progress.txt"
 LOG_FILE="/home/pi/install_log.txt"
 SERVICE_NAME="install_script_service"
@@ -34,8 +38,6 @@ wait_for_internet() {
 }
 
 install_resume_service() {
-  local script_path
-  script_path=$(realpath "$0")
   local svc="/etc/systemd/system/${SERVICE_NAME}.service"
 
   sudo tee "$svc" >/dev/null <<EOF
@@ -46,7 +48,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=${script_path}
+ExecStart=${SCRIPT_PATH}
 RemainAfterExit=true
 
 [Install]
@@ -75,8 +77,15 @@ reboot_and_resume() {
   exit 0
 }
 
+if [ "$(basename "$SCRIPT_PATH")" != "$SCRIPT_NAME" ]; then
+  log "WARNING: Expected script name ${SCRIPT_NAME}, got $(basename "$SCRIPT_PATH")"
+fi
+if [ "$SCRIPT_DIR" != "/home/pi/picframe" ]; then
+  log "INFO: Installer running from ${SCRIPT_DIR} (expected repo root is /home/pi/picframe)"
+fi
+
 LAST_STEP=$(progress_get)
-log "Starting installer. Last completed step: ${LAST_STEP}"
+log "Starting installer from ${SCRIPT_PATH}. Last completed step: ${LAST_STEP}"
 
 # 1) Update OS and reboot
 if [ "$LAST_STEP" -lt 1 ]; then

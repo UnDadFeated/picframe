@@ -118,7 +118,6 @@ Install script fixes and changes in this fork (relative to the original workflow
 Fork adaptation details:
 
 - Script path: `install_picframe.sh` (repo root)
-- Backup copy: `scripts/install_picframe.sh`
 - Target branch: `dev`
 - It installs dependencies, sets up a venv, installs this fork, configures mosquitto, and configures labwc autostart.
 
