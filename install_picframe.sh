@@ -161,6 +161,7 @@ echo "=== $(date '+%Y-%m-%d %H:%M:%S') start_picframe ==="
 export XDG_RUNTIME_DIR=/run/user/1000
 export WAYLAND_DISPLAY=wayland-0
 mkdir -p /run/user/1000
+ulimit -n 4096 2>/dev/null
 sleep 2
 if pgrep -f '/home/pi/venv_picframe/bin/picframe' >/dev/null 2>&1; then
   echo "picframe already running"
