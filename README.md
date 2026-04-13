@@ -94,11 +94,17 @@ If you are running this fork directly, start with:
 - `src/picframe/config/configuration_example.yaml`
 - your existing `configuration.yaml` deployment values
 
-## Bookworm Lite install (Wolfgang script)
+## Bookworm Lite install (Wolfgang-based script)
 
-This fork includes an end-to-end installer script for Raspberry Pi OS Bookworm Lite:
+This fork includes an end-to-end installer script for Raspberry Pi OS Bookworm Lite.
 
-- Script path: `scripts/wolfgang_install_bookworm_lite.sh`
+Original source reference (base script/workflow inspiration):
+
+- https://www.thedigitalpictureframe.com/install-the-pi3d-pictureframe-software-with-one-click-2025-edition-raspberry-pi-2-3-4-5/
+
+Fork adaptation details:
+
+- Script path: `scripts/install_picframe.sh`
 - Target branch: `dev`
 - It installs dependencies, sets up a venv, installs this fork, configures mosquitto, and configures labwc autostart.
 
@@ -117,8 +123,8 @@ sudo apt-get update && sudo apt-get install -y git
 cd /home/pi
 git clone -b dev https://github.com/UnDadFeated/picframe.git
 cd picframe
-chmod +x scripts/wolfgang_install_bookworm_lite.sh
-./scripts/wolfgang_install_bookworm_lite.sh
+chmod +x scripts/install_picframe.sh
+./scripts/install_picframe.sh
 ```
 
 The installer is reboot-resumable and logs progress to:
