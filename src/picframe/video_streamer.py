@@ -35,7 +35,7 @@ from PIL import Image
 
 from .video_metadata import VideoMetadata
 
-VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.flv', '.mov', '.avi', '.webm', '.hevc', '.av1', '.webm']
+VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.flv', '.mov', '.avi', '.webm', '.hevc', '.av1']
 
 _image_file_lock = threading.Lock()
 

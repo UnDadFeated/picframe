@@ -10,12 +10,8 @@ import base64
 import io
 from PIL import Image
 
-try:
-    from http.server import BaseHTTPRequestHandler, HTTPServer  # py3
-    import urllib.parse as urlparse
-except ImportError:
-    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer  # py2
-    import urlparse
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import urllib.parse as urlparse
 
 try:
     from pi_heif import register_heif_opener
@@ -239,7 +235,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.server._logger.error('httpserver error: {}'.format(e))
 
 
-class InterfaceHttp(HTTPServer):
+class ReusableHTTPServer(HTTPServer):
+    allow_reuse_address = True
+
+
+class InterfaceHttp(ReusableHTTPServer):
     def __init__(
             self,
             controller,

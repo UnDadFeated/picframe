@@ -35,9 +35,11 @@ DEFAULT_CONFIG = {
         'slide_progress_show': True,          # show slide countdown text
         'slide_progress_font_size': 11,        # slide countdown text font size
         'show_cache_indicator': True,          # show cache building indicator on startup
-        'cache_progress_position': 'bottom-right',  # cache progress bar anchor: top-right or bottom-right
-        'cache_progress_x_offset': 58,         # cache progress bar X pixel offset
-        'cache_progress_y_offset': 59,         # cache progress bar Y pixel offset from bottom/top anchor
+        'cache_progress_position': 'bottom-right',  # cache countdown text anchor: top-right or bottom-right
+        'cache_progress_x_offset': 58,         # cache countdown text X pixel offset
+        'cache_progress_y_offset': 59,         # cache countdown text Y pixel offset from bottom/top anchor
+        'cache_progress_font_size': 11,        # cache countdown text font size
+        'cache_progress_text_width': 500,      # cache countdown text max width in pixels
         'slide_progress_position': 'top-right',  # slide-change progress bar anchor
         'slide_progress_x_offset': 0,         # slide progress bar X pixel offset
         'slide_progress_y_offset': 0,         # slide progress bar Y pixel offset
@@ -59,7 +61,7 @@ DEFAULT_CONFIG = {
         'display_hdmi': "HDMI-A-1",
         'use_glx': False,                          # default=False. Set to True on linux with xserver running
         'use_sdl2': True,
-        'test_key': 'test_value',
+
         'mat_images': True,
         'mat_type': None,
         'outer_mat_color': None,
@@ -415,7 +417,7 @@ class Model:
     def pause_looping(self, val):
         self.__image_cache.pause_looping(val)
 
-    def stop_image_chache(self):
+    def stop_image_cache(self):
         self.__image_cache.stop()
 
     def purge_files(self):
@@ -587,14 +589,8 @@ class Model:
         self.__number_of_files = len(self.__file_list)
         self.__file_index = 0
         self.__num_run_through = 0
-        self.__reload_files = False
-        self.__date_filter_applied = True
-        
         self.__logger.info("Loaded %d files from cache", self.__number_of_files)
-        if self.__number_of_files > 0:
-            self.__reload_files = False
-        else:
-            self.__reload_files = True
+        self.__reload_files = self.__number_of_files == 0
 
     def check_date_filter(self):
         """Check and update date filter/cache window daily at local midnight."""
@@ -605,5 +601,5 @@ class Model:
 
     def __generate_random_string(self, length):
         random_bytes = os.urandom(length // 2)
-        random_string = ''.join('{:02x}'.format(ord(chr(byte))) for byte in random_bytes)
+        random_string = ''.join('{:02x}'.format(byte) for byte in random_bytes)
         return random_string

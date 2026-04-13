@@ -22,7 +22,6 @@ class ImageCache:
                      'EXIF ISOSpeedRatings': 'iso',
                      'EXIF FocalLength': 'focal_length',
                      'EXIF Rating': 'rating',
-                     'EXIF LensModel': 'lens',
                      'EXIF DateTimeOriginal': 'exif_datetime',
                      'IPTC Keywords': 'tags',
                      'IPTC Caption/Abstract': 'caption',
@@ -280,7 +279,8 @@ class ImageCache:
             CREATE TABLE IF NOT EXISTS folder (
                 folder_id INTEGER NOT NULL PRIMARY KEY,
                 name TEXT UNIQUE NOT NULL,
-                last_modified REAL DEFAULT 0 NOT NULL
+                last_modified REAL DEFAULT 0 NOT NULL,
+                missing INTEGER DEFAULT 0 NOT NULL
             )"""
 
         sql_file_table = """
@@ -329,9 +329,6 @@ class ImageCache:
 
         sql_file_index = """
             CREATE INDEX IF NOT EXISTS file_last_modified ON file (last_modified)"""
-
-        sql_folder_missing_index = """
-            CREATE INDEX IF NOT EXISTS folder_missing ON folder (missing)"""
 
         sql_location_table = """
             CREATE TABLE IF NOT EXISTS location (
@@ -388,7 +385,12 @@ class ImageCache:
 
         db = sqlite3.connect(db_file, check_same_thread=False)
         db.row_factory = sqlite3.Row  # make results accessible by field name
-        
+
+        try:
+            db.execute("DROP VIEW IF EXISTS all_data")
+        except sqlite3.OperationalError:
+            pass
+
         # Enable WAL mode for better crash recovery and concurrent access
         db.execute("PRAGMA journal_mode=WAL")
         # Set a reasonable busy timeout
@@ -397,7 +399,7 @@ class ImageCache:
         db.execute("PRAGMA foreign_keys=ON")
         
         for item in (sql_folder_table, sql_file_table, sql_meta_table, sql_location_table, sql_meta_index,
-                     sql_file_index, sql_folder_missing_index, sql_all_data_view, sql_db_info_table, 
+                     sql_file_index, sql_all_data_view, sql_db_info_table,
                      sql_clean_file_trigger, sql_clean_meta_trigger):
             db.execute(item)
 
@@ -421,7 +423,11 @@ class ImageCache:
                 # This allows stored data to be retained for files in folders that may be temporarily
                 #   missing while not causing issues for the slideshow.
                 self.__db.execute("DROP VIEW all_data")
-                self.__db.execute("ALTER TABLE folder ADD COLUMN missing INTEGER DEFAULT 0 NOT NULL")
+                try:
+                    self.__db.execute("ALTER TABLE folder ADD COLUMN missing INTEGER DEFAULT 0 NOT NULL")
+                except sqlite3.OperationalError as e:
+                    if "duplicate column name: missing" not in str(e).lower():
+                        raise
                 self.__db.execute("""
                     CREATE VIEW IF NOT EXISTS all_data
                     AS
@@ -438,33 +444,68 @@ class ImageCache:
                             ON file.file_id = meta.file_id
                         LEFT JOIN location
                             ON location.latitude = meta.latitude AND location.longitude = meta.longitude
-                    WHERE folder.missing = 0
+                    WHERE IFNULL(folder.missing, 0) = 0
                     """)
 
             if schema_version <= 2:
                 # Migrate to db schema v3
                 # Add "displayed statistics" fields to the file table (useful for slideshow debugging)
-                self.__db.execute("ALTER TABLE file ADD COLUMN displayed_count INTEGER default 0 NOT NULL")
-                self.__db.execute("ALTER TABLE file ADD COLUMN last_displayed REAL DEFAULT 0 NOT NULL")
+                try:
+                    self.__db.execute("ALTER TABLE file ADD COLUMN displayed_count INTEGER default 0 NOT NULL")
+                except sqlite3.OperationalError as e:
+                    if "duplicate column name: displayed_count" not in str(e).lower():
+                        raise
+                try:
+                    self.__db.execute("ALTER TABLE file ADD COLUMN last_displayed REAL DEFAULT 0 NOT NULL")
+                except sqlite3.OperationalError as e:
+                    if "duplicate column name: last_displayed" not in str(e).lower():
+                        raise
 
             if schema_version <= 3:
                 # Migrate to db schema v4
                 # Add additional EXIF fields
-                self.__db.execute("ALTER TABLE meta ADD COLUMN white_balance TEXT")
-                self.__db.execute("ALTER TABLE meta ADD COLUMN flash TEXT")
-                self.__db.execute("ALTER TABLE meta ADD COLUMN metering_mode TEXT")
-                self.__db.execute("ALTER TABLE meta ADD COLUMN exposure_mode TEXT")
-                self.__db.execute("ALTER TABLE meta ADD COLUMN software TEXT")
-                self.__db.execute("ALTER TABLE meta ADD COLUMN artist TEXT")
-                self.__db.execute("ALTER TABLE meta ADD COLUMN copyright TEXT")
-                self.__db.execute("ALTER TABLE meta ADD COLUMN lens_make TEXT")
-                self.__db.execute("ALTER TABLE meta ADD COLUMN lens_model TEXT")
+                for col, ddl in (
+                    ("white_balance", "ALTER TABLE meta ADD COLUMN white_balance TEXT"),
+                    ("flash", "ALTER TABLE meta ADD COLUMN flash TEXT"),
+                    ("metering_mode", "ALTER TABLE meta ADD COLUMN metering_mode TEXT"),
+                    ("exposure_mode", "ALTER TABLE meta ADD COLUMN exposure_mode TEXT"),
+                    ("software", "ALTER TABLE meta ADD COLUMN software TEXT"),
+                    ("artist", "ALTER TABLE meta ADD COLUMN artist TEXT"),
+                    ("copyright", "ALTER TABLE meta ADD COLUMN copyright TEXT"),
+                    ("lens_make", "ALTER TABLE meta ADD COLUMN lens_make TEXT"),
+                    ("lens_model", "ALTER TABLE meta ADD COLUMN lens_model TEXT"),
+                ):
+                    try:
+                        self.__db.execute(ddl)
+                    except sqlite3.OperationalError as e:
+                        if f"duplicate column name: {col}" not in str(e).lower():
+                            raise
 
             if schema_version <= 4:
                 # Migrate to db schema v5
                 # Add indexes for better performance on large databases
                 self.__db.execute("CREATE INDEX IF NOT EXISTS file_last_modified ON file (last_modified)")
-                self.__db.execute("CREATE INDEX IF NOT EXISTS folder_missing ON folder (missing)")
+
+            self.__db.execute("DROP VIEW IF EXISTS all_data")
+            self.__db.execute("""
+                CREATE VIEW IF NOT EXISTS all_data
+                AS
+                SELECT
+                    folder.name || "/" || file.basename || "." || file.extension AS fname,
+                    file.last_modified,
+                    meta.*,
+                    meta.height > meta.width as is_portrait,
+                    location.description as location
+                FROM file
+                    INNER JOIN folder
+                        ON folder.folder_id = file.folder_id
+                    LEFT JOIN meta
+                        ON file.file_id = meta.file_id
+                    LEFT JOIN location
+                        ON location.latitude = meta.latitude AND location.longitude = meta.longitude
+                WHERE IFNULL(folder.missing, 0) = 0
+                """)
+            self.__db.execute("CREATE INDEX IF NOT EXISTS folder_missing ON folder (missing)")
 
             # Finally, update the db's schema version stamp to the app's requested version
             self.__db.execute('DELETE FROM db_info')

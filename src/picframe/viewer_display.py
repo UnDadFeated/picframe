@@ -1,5 +1,4 @@
 import time
-import math
 import subprocess
 import logging
 import os
@@ -10,9 +9,6 @@ import numpy as np
 import pi3d  # type: ignore
 from picframe import mat_image, get_image_meta
 from picframe.video_streamer import VideoStreamer, VIDEO_EXTENSIONS, VideoFrameExtractor
-
-# supported display modes for display switch
-dpms_mode = ("unsupported", "pi", "x_dpms")
 
 
 # utility functions with no dependency on ViewerDisplay properties
@@ -87,18 +83,17 @@ class ViewerDisplay:
         self.__cache_progress_position = config.get('cache_progress_position', 'bottom-right')
         self.__cache_progress_x_offset = config.get('cache_progress_x_offset', 58)
         self.__cache_progress_y_offset = config.get('cache_progress_y_offset', 59)
+        self.__cache_progress_font_size = config.get('cache_progress_font_size', 11)
+        self.__cache_progress_text_width = config.get('cache_progress_text_width', 500)
         self.__fit = config['fit']
         self.__video_fit_display = config['video_fit_display']
         self.__geo_suppress_list = config['geo_suppress_list']
         self.__kenburns = config['kenburns']
         
         # Track if we're still in initial load/building cache phase
-        self.__initial_load = True
-        self.__initial_load_start_tm = time.time()
         self.__initial_load_text = None
         self.__loaded_file_count = 0
         if self.__kenburns:
-            self.__kb_up = True
             self.__fit = False
             self.__blur_edges = False
         if self.__blur_zoom < 1.0:
@@ -148,6 +143,7 @@ class ViewerDisplay:
         self.__cache_scan_total = 0
         self.__cache_scan_processed = 0
         self.__cache_scan_percent = 0.0
+        self.__disable_progress_overlays = False
         ImageFile.LOAD_TRUNCATED_IMAGES = True  # occasional damaged file hangs app
 
     def set_cache_loading(self, loading: bool):
@@ -265,7 +261,7 @@ class ViewerDisplay:
         elif self.__display_power == 3:
             try:  # try sending on or off to drm card status
                 if self.__display_drmcard is None:
-                    _ison = self.display_is_on() # should find card num
+                    _ = self.display_is_on  # read property to trigger card detection
                 on_off_txt = 'on' if on_off else 'off'
                 drm_card_cmd = f"echo {on_off_txt} | sudo tee /sys/class/drm/card{self.__display_drmcard}-{self.__display_hdmi}/status"
                 os.system(drm_card_cmd)
@@ -629,6 +625,8 @@ class ViewerDisplay:
                             countdown: int = None, position: str = "bottom-right", percent: float = None,
                             draw_bar: bool = True):
         """Draw progress UI with optional bar and text."""
+        if self.__disable_progress_overlays:
+            return
         margin = 90  # pixels from edge (keeps clear of ~1in matte border)
         bar_width = 150
         bar_height = self.__progress_bar_height
@@ -693,59 +691,53 @@ class ViewerDisplay:
             self.__progress_countdown.sprite.position(x_pos + bar_width // 2 + 16, y_pos, 3.6)
             self.__progress_countdown.sprite.draw()
         else:
-            cache_text = f"{file_count} files"
-            if filename:
-                cache_text += f" | {os.path.basename(filename)}"
+            # Cache progress text: "filename - XX%"  (no bar)
+            basename = os.path.basename(filename) if filename else ""
+            pct_str = "{:.0f}%".format(percent) if percent is not None else ""
+            if basename and pct_str:
+                cache_text = "{} - {}".format(basename, pct_str)
+            elif basename:
+                cache_text = basename
+            else:
+                cache_text = pct_str or "Building cache..."
             self.__progress_countdown = pi3d.FixedString(
                 self.__font_file, cache_text,
-                font_size=11,
+                font_size=self.__cache_progress_font_size,
                 shader=self.__flat_shader,
                 justify="L",
-                width=bar_width + 120,
+                width=self.__cache_progress_text_width,
                 color=(255, 255, 255, int(180 * self.get_brightness()))
             )
-            text_y = y_pos - bar_height - 12
-            self.__progress_countdown.sprite.position(x_pos - bar_width // 2 + 15, text_y, 3.6)
+            self.__progress_countdown.sprite.position(x_pos, y_pos, 3.6)
             self.__progress_countdown.sprite.draw()
-            if percent is not None:
-                pct_text = pi3d.FixedString(
-                    self.__font_file, f"{percent:.0f}%",
-                    font_size=14,
-                    shader=self.__flat_shader,
-                    justify="L",
-                    width=60,
-                    color=(255, 255, 255, int(180 * self.get_brightness()))
-                )
-                pct_text.sprite.position(x_pos + bar_width // 2 + 16, y_pos, 3.6)
-                pct_text.sprite.draw()
 
     def __draw_cache_indicator(self, progress: float, file_count: int = 0, current_file: str = None):
-        """Draw startup cache indicator."""
-        text = "Building cache..."
-        
-        # Use FixedString for text
+        """Draw startup cache indicator: 'Building cache...' centered + filename - % text."""
+        if self.__disable_progress_overlays:
+            return
+
+        # "Building cache..." centered on screen — rebuild only once
         if self.__initial_load_text is None:
             self.__initial_load_text = pi3d.FixedString(
-                self.__font_file, text,
-                font_size=60,  # larger font for visibility
+                self.__font_file, "Building cache...",
+                font_size=60,
                 shader=self.__flat_shader,
                 justify="C",
                 color=(255, 255, 255, 200)
             )
-        
-        # Position in center of screen
         self.__initial_load_text.sprite.position(0, 0, 0.2)
         self.__initial_load_text.sprite.set_alpha(0.8)
         self.__initial_load_text.sprite.draw()
-        
-        # Draw startup cache progress at bottom-right with file counter and filename
+
+        # filename - % line (no bar)
         self.__draw_progress_bar(
             progress,
             1.0,
             filename=current_file,
             file_count=self.__cache_scan_processed,
             percent=self.__cache_scan_percent,
-            position="bottom-right",
+            position=self.__cache_progress_position,
+            draw_bar=False,
         )
 
     @property
@@ -785,12 +777,6 @@ class ViewerDisplay:
                                           h=bkg_hgt, y=-int(self.__display.height) // 2 + bkg_hgt // 2, z=4.0)
             self.__text_bkg.set_draw_details(self.__flat_shader, [text_bkg_tex])
 
-        # Initialize progress bar sprite (hidden by default)
-        self.__progress_bar = None
-        self.__progress_bar_bg = None
-        self.__progress_start_tm = None
-        self.__progress_duration = None
-        self.__initial_load = True  # Flag to track initial cache building
         self.__initial_load_text = None
         self.__first_real_image_shown = False  # Track if first real image (not no_pictures) was shown
 
@@ -982,38 +968,48 @@ class ViewerDisplay:
                     block.sprite.draw()
         
         # Draw cache progress while cache is building
-        if self.__show_cache_indicator and self.__cache_loading and self.__cache_start_tm is not None:
+        if not self.__disable_progress_overlays and self.__show_cache_indicator and self.__cache_loading and self.__cache_start_tm is not None:
             progress = max(0.0, min(1.0, self.__cache_scan_percent / 100.0))
-            self.__draw_progress_bar(
-                progress,
-                1.0,
-                filename=self.__cache_current_file,
-                file_count=self.__cache_scan_processed,
-                percent=self.__cache_scan_percent,
-                position=self.__cache_progress_position,
-            )
-            if not self.__first_real_image_shown:
-                self.__draw_cache_indicator(
+            try:
+                self.__draw_progress_bar(
                     progress,
-                    file_count=self.__loaded_file_count,
-                    current_file=self.__cache_current_file,
+                    1.0,
+                    filename=self.__cache_current_file,
+                    file_count=self.__cache_scan_processed,
+                    percent=self.__cache_scan_percent,
+                    position=self.__cache_progress_position,
                 )
+                if not self.__first_real_image_shown:
+                    self.__draw_cache_indicator(
+                        progress,
+                        file_count=self.__loaded_file_count,
+                        current_file=self.__cache_current_file,
+                    )
+            except Exception as e:
+                self.__disable_progress_overlays = True
+                self.__logger.warning("Disabling progress overlays due to draw error")
+                self.__logger.warning("Cause: %s", e)
         
         # Draw slide-change countdown bar in top-right
-        if self.__show_progress_bar and self.__first_real_image_shown:
+        if not self.__disable_progress_overlays and self.__show_progress_bar and self.__first_real_image_shown:
             time_left = self.__next_tm - tm
             countdown_window_start = self.__next_tm - time_delay + 1.0
             countdown_window_end = self.__next_tm - fade_time - 1.0
             countdown_total = max(0.1, countdown_window_end - countdown_window_start)
             if countdown_window_start <= tm <= countdown_window_end:
                 countdown_left = countdown_window_end - tm
-                self.__draw_progress_bar(
-                    countdown_left,
-                    countdown_total,
-                    countdown=max(1, int(countdown_left + 0.999)),
-                    position=self.__slide_progress_position,
-                    draw_bar=False,
-                )
+                try:
+                    self.__draw_progress_bar(
+                        countdown_left,
+                        countdown_total,
+                        countdown=max(1, int(countdown_left + 0.999)),
+                        position=self.__slide_progress_position,
+                        draw_bar=False,
+                    )
+                except Exception as e:
+                    self.__disable_progress_overlays = True
+                    self.__logger.warning("Disabling progress overlays due to draw error")
+                    self.__logger.warning("Cause: %s", e)
         
         return (loop_running, skip_image, video_playing)  # now returns tuple with skip image flag and video_time added
     

@@ -3,7 +3,6 @@
 import logging
 import time
 import signal
-import sys
 import ssl
 import os
 import datetime
@@ -340,7 +339,7 @@ class Controller:
                             image_attr[key] = pics[0].__dict__[field_name]  # TODO nicer using namedtuple for Pic
                     if self.__mqtt_config['use_mqtt']:
                         self.publish_state(pics[0].fname, image_attr)
-            self.__model.pause_looping = self.__viewer.is_in_transition()
+            self.__model.pause_looping(self.__viewer.is_in_transition())
             cache_status = self.__model.get_cache_status()
             self.__viewer.set_loaded_file_count(cache_status.get('file_count', 0))
             self.__viewer.set_cache_current_file(cache_status.get('current_file'))
@@ -400,22 +399,26 @@ class Controller:
         if self.__http_config['use_http']:
             from picframe import interface_http
             model_config = self.__model.get_model_config()
-            self.__interface_http = interface_http.InterfaceHttp(
-                                                                    self,
-                                                                    self.__http_config['path'],
-                                                                    model_config['pic_dir'],
-                                                                    model_config['no_files_img'],
-                                                                    self.__http_config['port'],
-                                                                    self.__http_config['auth'],
-                                                                    self.__http_config['username'],
-                                                                    self.__http_config['password'],
-                                                                )  # TODO: Implement TLS
-            if self.__http_config['use_ssl']:
-                self.__interface_http.socket = ssl.wrap_socket(
-                                                self.__interface_http.socket,
-                                                keyfile=self.__http_config['keyfile'],
-                                                certfile=self.__http_config['certfile'],
-                                                server_side=True)
+            try:
+                self.__interface_http = interface_http.InterfaceHttp(
+                                                                        self,
+                                                                        self.__http_config['path'],
+                                                                        model_config['pic_dir'],
+                                                                        model_config['no_files_img'],
+                                                                        self.__http_config['port'],
+                                                                        self.__http_config['auth'],
+                                                                        self.__http_config['username'],
+                                                                        self.__http_config['password'],
+                                                                    )  # TODO: Implement TLS
+                if self.__http_config['use_ssl']:
+                    self.__interface_http.socket = ssl.wrap_socket(
+                                                    self.__interface_http.socket,
+                                                    keyfile=self.__http_config['keyfile'],
+                                                    certfile=self.__http_config['certfile'],
+                                                    server_side=True)
+            except OSError as e:
+                self.__logger.error("HTTP interface failed to bind on port %s: %s", self.__http_config['port'], e)
+                self.__interface_http = None
 
     def stop(self):
         self.keep_looping = False
@@ -424,7 +427,7 @@ class Controller:
             self.__interface_mqtt.stop()
         if self.__interface_http:
             self.__interface_http.stop()
-        self.__model.stop_image_chache()  # close db tidily (blocks till closed)
+        self.__model.stop_image_cache()  # close db tidily (blocks till closed)
         self.__viewer.slideshow_stop()  # do this last
 
     def __signal_handler(self, sig, frame):
