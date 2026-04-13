@@ -1,66 +1,78 @@
-## PictureFrame powered by pi3d
+## Picframe Fork (based on helgeerbe/picframe)
 
-![picframe logo](https://github.com/helgeerbe/picframe/wiki/images/Picframe_Logo.png)
+This repository is a practical fork of the original Picframe project, tuned for a real-world home frame setup.
 
-- [PictureFrame powered by pi3d](#pictureframe-powered-by-pi3d)
-- [What Is PictureFrame?](#what-is-pictureframe)
-- [History of PictureFrame](#history-of-pictureframe)
-- [Highlights of PictureFrame](#highlights-of-pictureframe)
-- [Documentation](#documentation)
-- [Acknowledgement](#acknowledgement)
+- Upstream project: https://github.com/helgeerbe/picframe
+- Fork maintainer: https://github.com/UnDadFeated/picframe
+- License: MIT (same as upstream)
 
-## What Is PictureFrame?
+## What this fork changes
 
-This is a viewer for a raspberry powered picture frame. For remote control it provides an automatic integration into [Home Assistant](https://www.home-assistant.io/) via MQTT discovery.
+Compared to the original upstream `main` branch, this fork adds reliability improvements, display/power handling updates, better control behavior, and deployment-focused configuration defaults.
 
-- https://github.com/helgeerbe/picframe
-- Paddy Gaunt, Jeff Godfrey, Helge Erbe
-- Licence: MIT
-- Tested on rasberry 3B+/4, Ubuntu 20.10 and Python 3.7
+### 1) Display and power control improvements
 
-## History of PictureFrame
+- Added support for selecting and handling a second HDMI output.
+- Improved display on/off control logic.
+- Added support for checking display connection state via DRM sysfs (`/sys/class/drm/card0-HDMI-A-1/status`) when using display power mode 3.
 
-When I started 2019 my DIY project building a raspberry powered digital picture frame I came across Wolfgang's website [www.thedigitalpictureframe.com](https://www.thedigitalpictureframe.com/). I ran my frame with the [pi3d PictureFrame2020.py](https://github.com/pi3d/pi3d_demos) viewer, but always missed a more deeply integration to my smart home server running [Home Assistant](https://www.home-assistant.io/).As my personel corona project I decided to rewrite the viewer to my needs. Hoping  someone can make use of it.
+### 2) Input and control interface updates
 
+- Improved touch and mouse handling behavior.
+- Added configurable menu fade timing in the HTML control interface.
+- Added a boolean control variable in the web UI logic for cleaner control state handling.
 
-## Highlights of PictureFrame
+### 3) Video playback and media flow fixes
 
-- Viewer
-  - blend effects
-  - auto mat generation
-  - photo metadata overlays (title, location, date, ...)
-  - live clock
-  - automatic pairing of portrait images
-  - keyboard, mouse and touch screen support
-- Filter by
-  - IPTC tags
-  - location
-  - directories
-  - date
-- Remote Control
-  - control interface for mqtt, http(s)
-  - tun on/off display
-  - next/prev/pause image
-  - shuffle play
-  - toggle metadata overlays
-  - toggle clock visibility
-  - retrieve image meta info (exif, IPTC)
+- Multiple fixes for video playback edge cases and badly behaved video files.
+- Additional fixes around video player/streamer behavior for smoother playback.
+- Cache loading flow improvements to better support seasonal/curated media sets.
 
-## Documentation
+### 4) Metadata and geo lookup reliability
 
-[Full documentation can be found at the project's wiki](https://github.com/helgeerbe/picframe/wiki).
+- Geo reverse lookup fixes and robustness updates.
+- Added required `User-Agent` for Nominatim requests.
+- Added minimum retry time handling for Nominatim requests to reduce request failures.
 
-Please note that PictureFrame may change significantly during its development.
-Bug reports, comments, feature requests and fixes are most welcome!
+### 5) Viewer and runtime stability
 
-To find out what's new or improved have a look at the [changelog](https://github.com/helgeerbe/picframe/wiki/Changelog).
+- Fixes in controller/model/viewer flow to improve runtime consistency.
+- Thread naming cleanup and related reliability fixes.
+- General maintenance improvements across startup and peripheral handling code.
 
-## Acknowledgement
+### 6) Configuration defaults aligned to deployed setup
 
-[glenvorel](https://github.com/glenvorel) Thanks for the new keyboard, mouse and touch screen support.
+- Updated `configuration_example.yaml` to reflect this fork's actively deployed/default setup.
 
-Many Thanks to Wolfgang [www.thedigitalpictureframe.com](https://www.thedigitalpictureframe.com/) for your inspiring work. 
+## Files with fork-vs-upstream differences
 
-A special Thank to Paddy Gaunt one of the authors of the [pi3d](https://github.com/pi3d/pi3d_demos) project. You are doing a great job!
+Compared to upstream `origin/main`, this fork currently differs in these core files:
 
-Last but no least a big Thank You to Jeff Godfrey. Your auto mat feature and database driven cache is an outstanding piece of code.
+- `pyproject.toml`
+- `src/picframe/config/configuration_example.yaml`
+- `src/picframe/controller.py`
+- `src/picframe/geo_reverse.py`
+- `src/picframe/html/index.html`
+- `src/picframe/html/pf_functions.js`
+- `src/picframe/image_cache.py`
+- `src/picframe/interface_peripherals.py`
+- `src/picframe/model.py`
+- `src/picframe/start.py`
+- `src/picframe/video_player.py`
+- `src/picframe/video_streamer.py`
+- `src/picframe/viewer_display.py`
+
+## Quick start
+
+Use upstream installation/documentation as your base reference, then apply this fork for the behavior improvements listed above:
+
+- Upstream wiki: https://github.com/helgeerbe/picframe/wiki
+
+If you are running this fork directly, start with:
+
+- `src/picframe/config/configuration_example.yaml`
+- your existing `configuration.yaml` deployment values
+
+## Notes
+
+This fork is focused on practical day-to-day operation on a Raspberry Pi picture frame (display control, input handling, and playback reliability), while staying close to upstream structure.
