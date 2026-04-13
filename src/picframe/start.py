@@ -1,4 +1,5 @@
 import logging
+import logging.handlers
 import argparse
 import os
 import locale
@@ -82,7 +83,49 @@ def check_packages(packages):
             print(package, ': Not found!')
 
 
+def setup_logging(log_level='WARNING', log_max_days=10):
+    """Set up logging with file rotation for warnings and errors only."""
+    # Get the log directory from environment or default
+    log_dir = os.path.expanduser('~/picframe_data/logs')
+    os.makedirs(log_dir, exist_ok=True)
+    
+    log_file = os.path.join(log_dir, 'picframe.log')
+    
+    # Create logger
+    logger = logging.getLogger()
+    logger.setLevel(getattr(logging, log_level.upper(), logging.WARNING))
+    
+    # Remove existing handlers
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+    
+    # File handler with rotation (10 days max)
+    file_handler = logging.handlers.TimedRotatingFileHandler(
+        log_file, 
+        when='midnight', 
+        interval=1,  # daily rotation
+        backupCount=log_max_days
+    )
+    file_handler.setLevel(logging.WARNING)  # Only warnings and errors to file
+    file_formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    file_handler.setFormatter(file_formatter)
+    logger.addHandler(file_handler)
+    
+    # Console handler for INFO level
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    console_formatter = logging.Formatter('%(levelname)s: %(message)s')
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
+    
+    return logger
+
+
 def main():
+    # First, create a basic logger to capture early startup messages
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     logger = logging.getLogger("start.py")
     logger.info('starting %s', sys.argv)
@@ -130,6 +173,12 @@ def main():
         m = model.Model(args.configfile)
     else:
         m = model.Model()
+
+    # Set up logging based on config after model is loaded
+    viewer_config = m.get_viewer_config()
+    log_level = viewer_config.get('log_level', 'WARNING')
+    log_max_days = viewer_config.get('log_max_days', 10)
+    setup_logging(log_level, log_max_days)
 
     v = viewer_display.ViewerDisplay(m.get_viewer_config())
     c = controller.Controller(m, v)

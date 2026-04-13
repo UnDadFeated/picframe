@@ -1,4 +1,5 @@
 import time
+import math
 import subprocess
 import logging
 import os
@@ -16,7 +17,10 @@ dpms_mode = ("unsupported", "pi", "x_dpms")
 
 # utility functions with no dependency on ViewerDisplay properties
 def txt_to_bit(txt):
-    txt_map = {"title": 1, "caption": 2, "name": 4, "date": 8, "location": 16, "folder": 32}
+    txt_map = {"title": 1, "caption": 2, "name": 4, "date": 8, "location": 16, "folder": 32,
+               "camera": 64, "lens": 128, "iso": 256, "aperture": 512, "exposure": 1024,
+               "white_balance": 2048, "flash": 4096, "metering": 8192, "software": 16384,
+               "artist": 32768, "copyright": 65536}
     if txt in txt_map:
         return txt_map[txt]
     return 0
@@ -25,7 +29,9 @@ def txt_to_bit(txt):
 def parse_show_text(txt):
     show_text = 0
     txt = txt.lower()
-    for txt_key in ("title", "caption", "name", "date", "location", "folder"):
+    for txt_key in ("title", "caption", "name", "date", "location", "folder", "camera", "lens",
+                    "iso", "aperture", "exposure", "white_balance", "flash", "metering",
+                    "software", "artist", "copyright"):
         if txt_key in txt:
             show_text |= txt_to_bit(txt_key)
     return show_text
@@ -64,10 +70,33 @@ class ViewerDisplay:
         self.__text_opacity = config['text_opacity']
         self.__text_x_margin = config['text_x_margin']
         self.__text_y_margin = config['text_y_margin']
+        self.__text_x_position = config['text_x_position']
+        self.__text_y_position = config['text_y_position']
+        self.__text_position_mode = config['text_position_mode']
+        self.__text_width = config['text_width']
+        self.__text_line_spacing = config['text_line_spacing']
+        self.__video_volume = config['video_volume']
+        self.__show_progress_bar = config.get('slide_progress_show', config.get('show_progress_bar', True))
+        self.__slide_progress_font_size = config.get('slide_progress_font_size', 11)
+        self.__progress_bar_height = config.get('slide_progress_height', config.get('progress_bar_height', 4))
+        self.__progress_bar_color = config.get('slide_progress_color', config.get('progress_bar_color', [1.0, 1.0, 1.0, 1.0]))
+        self.__show_cache_indicator = config['show_cache_indicator']
+        self.__slide_progress_position = config.get('slide_progress_position', 'top-right')
+        self.__slide_progress_x_offset = config.get('slide_progress_x_offset', 0)
+        self.__slide_progress_y_offset = config.get('slide_progress_y_offset', 0)
+        self.__cache_progress_position = config.get('cache_progress_position', 'bottom-right')
+        self.__cache_progress_x_offset = config.get('cache_progress_x_offset', 58)
+        self.__cache_progress_y_offset = config.get('cache_progress_y_offset', 59)
         self.__fit = config['fit']
         self.__video_fit_display = config['video_fit_display']
         self.__geo_suppress_list = config['geo_suppress_list']
         self.__kenburns = config['kenburns']
+        
+        # Track if we're still in initial load/building cache phase
+        self.__initial_load = True
+        self.__initial_load_start_tm = time.time()
+        self.__initial_load_text = None
+        self.__loaded_file_count = 0
         if self.__kenburns:
             self.__kb_up = True
             self.__fit = False
@@ -113,7 +142,40 @@ class ViewerDisplay:
         self.__image_overlay = None
         self.__prev_overlay_time = None
         self.__video_streamer = None
+        self.__cache_loading = True  # Track if cache is still building
+        self.__cache_start_tm = time.time()
+        self.__cache_current_file = None
+        self.__cache_scan_total = 0
+        self.__cache_scan_processed = 0
+        self.__cache_scan_percent = 0.0
         ImageFile.LOAD_TRUNCATED_IMAGES = True  # occasional damaged file hangs app
+
+    def set_cache_loading(self, loading: bool):
+        """Set whether the cache is still loading"""
+        self.__cache_loading = loading
+        if not loading:
+            self.__cache_start_tm = None
+            # Clear the initial load text when cache is done
+            self.__initial_load_text = None
+            self.__progress_info_text = None
+
+    def set_loaded_file_count(self, count: int):
+        """Set the number of files loaded so far"""
+        self.__loaded_file_count = count
+
+    def set_first_real_image_shown(self, shown: bool):
+        """Mark that the first real image (not no_pictures.jpg) has been displayed"""
+        self.__first_real_image_shown = shown
+
+    def set_cache_current_file(self, file_path: str):
+        """Set the current file being cached (for startup progress text)."""
+        self.__cache_current_file = file_path
+
+    def set_cache_scan_stats(self, processed: int, total: int, percent: float):
+        """Set scan progress counters used by startup cache progress bar."""
+        self.__cache_scan_processed = processed
+        self.__cache_scan_total = total
+        self.__cache_scan_percent = percent
 
     @property
     def display_is_on(self):
@@ -434,6 +496,31 @@ class ViewerDisplay:
                 info_strings.append(location)  # TODO need to sanitize and check longer than 0 for real
             if (self.__show_text & 32) == 32:  # folder
                 info_strings.append(os.path.basename(os.path.dirname(pic.fname)))
+            if (self.__show_text & 64) == 64 and pic.model is not None:  # camera model
+                cam = pic.model
+                if pic.make:
+                    cam = f"{pic.make} {cam}"
+                info_strings.append(cam)
+            if (self.__show_text & 128) == 128 and pic.lens is not None:  # lens
+                info_strings.append(pic.lens)
+            if (self.__show_text & 256) == 256 and pic.iso > 0:  # iso
+                info_strings.append(f"ISO {pic.iso}")
+            if (self.__show_text & 512) == 512 and pic.f_number > 0:  # aperture
+                info_strings.append(f"f/{pic.f_number}")
+            if (self.__show_text & 1024) == 1024 and pic.exposure_time is not None:  # exposure
+                info_strings.append(pic.exposure_time)
+            if (self.__show_text & 2048) == 2048 and pic.white_balance is not None:  # white balance
+                info_strings.append(str(pic.white_balance))
+            if (self.__show_text & 4096) == 4096 and pic.flash is not None:  # flash
+                info_strings.append(str(pic.flash))
+            if (self.__show_text & 8192) == 8192 and pic.metering_mode is not None:  # metering mode
+                info_strings.append(str(pic.metering_mode))
+            if (self.__show_text & 16384) == 16384 and pic.software is not None:  # software
+                info_strings.append(str(pic.software))
+            if (self.__show_text & 32768) == 32768 and pic.artist is not None:  # artist
+                info_strings.append(str(pic.artist))
+            if (self.__show_text & 65536) == 65536 and pic.copyright is not None:  # copyright
+                info_strings.append(str(pic.copyright))
             if paused:
                 info_strings.append("PAUSED")
         final_string = " • ".join(info_strings)
@@ -444,6 +531,8 @@ class ViewerDisplay:
                 c_rng = self.__display.width - self.__text_x_margin  # range for x loc from L to R justified
             else:
                 c_rng = self.__display.width * 0.5 - self.__text_x_margin  # range for x loc from L to R justified
+            if self.__text_width is not None and self.__text_width < c_rng:
+                c_rng = self.__text_width
             opacity = int(255 * float(self.__text_opacity) * self.get_brightness())
             block = pi3d.FixedString(self.__font_file, final_string, shadow_radius=3, font_size=self.__show_text_sz,
                                      shader=self.__flat_shader, justify=self.__text_justify, width=c_rng,
@@ -457,7 +546,15 @@ class ViewerDisplay:
                 x = adj_x
             else:
                 x = adj_x + int(self.__display.width * 0.25 * (-1.0 if side == 0 else 1.0))
-            y = (block.sprite.height - self.__display.height + self.__show_text_sz) // 2 + self.__text_y_margin
+            
+            if self.__text_position_mode == 'absolute' and self.__text_x_position is not None:
+                x = self.__text_x_position
+            
+            if self.__text_position_mode == 'absolute' and self.__text_y_position is not None:
+                y = self.__text_y_position
+            else:
+                y = (block.sprite.height - self.__display.height + self.__show_text_sz) // 2 + self.__text_y_margin
+            
             block.sprite.position(x, y, 0.1)
             block.sprite.set_alpha(0.0)
         if side == 0:
@@ -528,6 +625,129 @@ class ViewerDisplay:
         if self.__image_overlay is not None:  # shouldn't be possible to get here otherwise, but just in case!
             self.__image_overlay.draw()
 
+    def __draw_progress_bar(self, time_left: float, total_time: float, filename: str = None, file_count: int = 0,
+                            countdown: int = None, position: str = "bottom-right", percent: float = None,
+                            draw_bar: bool = True):
+        """Draw progress UI with optional bar and text."""
+        margin = 90  # pixels from edge (keeps clear of ~1in matte border)
+        bar_width = 150
+        bar_height = self.__progress_bar_height
+        x_pos = (self.__display.width // 2) - margin - bar_width
+        y_pos = -(self.__display.height // 2) + self.__cache_progress_y_offset + bar_height // 2
+        if position == "top-right":
+            x_pos += self.__slide_progress_x_offset
+            y_pos = (self.__display.height // 2) - margin - bar_height // 2 + self.__slide_progress_y_offset
+        else:
+            x_pos += self.__cache_progress_x_offset
+        
+        # Calculate progress
+        progress = time_left / total_time
+        if countdown is not None:
+            progress = 1.0 - progress
+        progress = max(0.0, min(1.0, progress))
+        
+        # Convert color from config (RGBA 0-1 range to 0-255)
+        r = int(self.__progress_bar_color[0] * 255)
+        g = int(self.__progress_bar_color[1] * 255)
+        b = int(self.__progress_bar_color[2] * 255)
+        a = int(self.__progress_bar_color[3] * 255 * self.get_brightness())
+        
+        if draw_bar:
+            # Draw bar track as white with alpha
+            bg_array = np.zeros((bar_height, bar_width, 4), dtype=np.uint8)
+            bg_array[:, :, 0:3] = [r, g, b]
+            bg_array[:, :, 3] = max(1, a)
+            bg_tex = pi3d.Texture(bg_array, blend=True, mipmap=False, free_after_load=True)
+            bg_sprite = pi3d.Sprite(w=bar_width, h=bar_height, z=3.5)
+            bg_sprite.set_draw_details(self.__flat_shader, [bg_tex])
+            bg_sprite.position(x_pos, y_pos, 3.5)
+            bg_sprite.set_alpha(1.0)
+            bg_sprite.draw()
+
+            # Fill consumed portion with black so white remainder indicates time left
+            fill_width = int(bar_width * progress)
+            if countdown is not None and progress > 0.0:
+                fill_width = max(1, fill_width)
+            if fill_width > 0:
+                prog_array = np.zeros((bar_height, fill_width, 4), dtype=np.uint8)
+                prog_array[:, :, 0:3] = [0, 0, 0]
+                prog_array[:, :, 3] = max(a, 220)
+                prog_tex = pi3d.Texture(prog_array, blend=True, mipmap=False, free_after_load=True)
+                prog_sprite = pi3d.Sprite(w=fill_width, h=bar_height, z=3.6)
+                prog_sprite.set_draw_details(self.__flat_shader, [prog_tex])
+                prog_sprite.position(x_pos - (bar_width - fill_width) // 2, y_pos, 3.6)
+                prog_sprite.set_alpha(1.0)
+                prog_sprite.draw()
+        
+        # Draw countdown timer (normal slideshow mode) or cache file text (startup mode)
+        if countdown is not None:
+            countdown_text = f"{countdown}s"
+            self.__progress_countdown = pi3d.FixedString(
+                self.__font_file, countdown_text,
+                font_size=self.__slide_progress_font_size,
+                shader=self.__flat_shader,
+                justify="L",
+                width=60,
+                color=(255, 255, 255, int(200 * self.get_brightness()))
+            )
+            self.__progress_countdown.sprite.position(x_pos + bar_width // 2 + 16, y_pos, 3.6)
+            self.__progress_countdown.sprite.draw()
+        else:
+            cache_text = f"{file_count} files"
+            if filename:
+                cache_text += f" | {os.path.basename(filename)}"
+            self.__progress_countdown = pi3d.FixedString(
+                self.__font_file, cache_text,
+                font_size=11,
+                shader=self.__flat_shader,
+                justify="L",
+                width=bar_width + 120,
+                color=(255, 255, 255, int(180 * self.get_brightness()))
+            )
+            text_y = y_pos - bar_height - 12
+            self.__progress_countdown.sprite.position(x_pos - bar_width // 2 + 15, text_y, 3.6)
+            self.__progress_countdown.sprite.draw()
+            if percent is not None:
+                pct_text = pi3d.FixedString(
+                    self.__font_file, f"{percent:.0f}%",
+                    font_size=14,
+                    shader=self.__flat_shader,
+                    justify="L",
+                    width=60,
+                    color=(255, 255, 255, int(180 * self.get_brightness()))
+                )
+                pct_text.sprite.position(x_pos + bar_width // 2 + 16, y_pos, 3.6)
+                pct_text.sprite.draw()
+
+    def __draw_cache_indicator(self, progress: float, file_count: int = 0, current_file: str = None):
+        """Draw startup cache indicator."""
+        text = "Building cache..."
+        
+        # Use FixedString for text
+        if self.__initial_load_text is None:
+            self.__initial_load_text = pi3d.FixedString(
+                self.__font_file, text,
+                font_size=60,  # larger font for visibility
+                shader=self.__flat_shader,
+                justify="C",
+                color=(255, 255, 255, 200)
+            )
+        
+        # Position in center of screen
+        self.__initial_load_text.sprite.position(0, 0, 0.2)
+        self.__initial_load_text.sprite.set_alpha(0.8)
+        self.__initial_load_text.sprite.draw()
+        
+        # Draw startup cache progress at bottom-right with file counter and filename
+        self.__draw_progress_bar(
+            progress,
+            1.0,
+            filename=current_file,
+            file_count=self.__cache_scan_processed,
+            percent=self.__cache_scan_percent,
+            position="bottom-right",
+        )
+
     @property
     def display_width(self):
         return self.__display.width
@@ -564,6 +784,15 @@ class ViewerDisplay:
             self.__text_bkg = pi3d.Sprite(w=self.__display.width,
                                           h=bkg_hgt, y=-int(self.__display.height) // 2 + bkg_hgt // 2, z=4.0)
             self.__text_bkg.set_draw_details(self.__flat_shader, [text_bkg_tex])
+
+        # Initialize progress bar sprite (hidden by default)
+        self.__progress_bar = None
+        self.__progress_bar_bg = None
+        self.__progress_start_tm = None
+        self.__progress_duration = None
+        self.__initial_load = True  # Flag to track initial cache building
+        self.__initial_load_text = None
+        self.__first_real_image_shown = False  # Track if first real image (not no_pictures) was shown
 
     def __load_video_frames(self, video_path: str) -> Optional[tuple[pi3d.Texture, pi3d.Texture]]:
         """
@@ -651,7 +880,9 @@ class ViewerDisplay:
                 new_sfg = self.__tex_load(pics, (self.__display.width, self.__display.height))
             tm = time.time()
             self.__next_tm = tm + time_delay
-            self.__name_tm = tm + fade_time + self.__show_text_tm  # text starts after slide transition
+            self.__name_tm = tm + fade_time + self.__show_text_tm  # legacy text timer
+            self.__text_end_tm = self.__next_tm + fade_time
+            self.__text_start_tm = tm
             if new_sfg is not None:  # this is a possible return value which needs to be caught
                 self.__sbg = self.__sfg
                 self.__sfg = new_sfg
@@ -712,7 +943,8 @@ class ViewerDisplay:
                     self.__video_streamer = VideoStreamer(
                         self.__display_x, self.__display_y,
                         self.__display.width, self.__display.height,
-                        self.__video_path, fit_display=self.__video_fit_display
+                        self.__video_path, fit_display=self.__video_fit_display,
+                        volume=self.__video_volume
                     )
                 else:
                     self.__video_streamer.play(self.__video_path)
@@ -725,32 +957,64 @@ class ViewerDisplay:
         if self.clock_is_on:
             self.__draw_clock()
 
-        if self.__alpha >= 1.0 and tm < self.__name_tm:
-            # this sets alpha for the TextBlock from 0 to 1 then back to 0
-            if self.__show_text_tm > 0:
-                dt = 1.0 - (self.__name_tm - tm) / self.__show_text_tm
+        text_start = getattr(self, '_ViewerDisplay__text_start_tm', tm)
+        text_end = getattr(self, '_ViewerDisplay__text_end_tm', self.__next_tm)
+        if self.__alpha >= 1.0 and text_start <= tm < text_end:
+            # Fade text in with photo at start transition
+            if tm < self.__next_tm:
+                transition_t = max(0.0, min(1.0, self.__slide.unif[44]))
+                alpha = transition_t
             else:
-                dt = 1
-            if dt > 0.995:
-                dt = 1  # ensure that calculated alpha value fully reaches 0 (TODO: Improve!)
-            ramp_pt = max(4.0, self.__show_text_tm / 4.0)  # always > 4 so text fade will always < 4s
+                # Fade text out with photo at end transition
+                transition_t = max(0.0, min(1.0, self.__slide.unif[44]))
+                alpha = max(0.0, 1.0 - transition_t)
 
-            # create single saw tooth over 0 to __show_text_tm
-            alpha = max(0.0, min(1.0, ramp_pt * (1.0 - abs(1.0 - 2.0 * dt))))  # function only run if image alpha is 1.0 so can use 1.0 - abs... # noqa: E501
-
-            # if we have text, set it's current alpha value to fade in/out
             for block in self.__textblocks:
                 if block is not None:
                     block.sprite.set_alpha(alpha)
 
-            # if we have a text background to render (and we currently have text), set its alpha and draw it
-            if self.__text_bkg_hgt and any(block is not None for block in self.__textblocks):  # only draw background if text there # noqa: E501
+            if self.__text_bkg_hgt and any(block is not None for block in self.__textblocks):
                 self.__text_bkg.set_alpha(alpha)
                 self.__text_bkg.draw()
 
             for block in self.__textblocks:
                 if block is not None:
                     block.sprite.draw()
+        
+        # Draw cache progress while cache is building
+        if self.__show_cache_indicator and self.__cache_loading and self.__cache_start_tm is not None:
+            progress = max(0.0, min(1.0, self.__cache_scan_percent / 100.0))
+            self.__draw_progress_bar(
+                progress,
+                1.0,
+                filename=self.__cache_current_file,
+                file_count=self.__cache_scan_processed,
+                percent=self.__cache_scan_percent,
+                position=self.__cache_progress_position,
+            )
+            if not self.__first_real_image_shown:
+                self.__draw_cache_indicator(
+                    progress,
+                    file_count=self.__loaded_file_count,
+                    current_file=self.__cache_current_file,
+                )
+        
+        # Draw slide-change countdown bar in top-right
+        if self.__show_progress_bar and self.__first_real_image_shown:
+            time_left = self.__next_tm - tm
+            countdown_window_start = self.__next_tm - time_delay + 1.0
+            countdown_window_end = self.__next_tm - fade_time - 1.0
+            countdown_total = max(0.1, countdown_window_end - countdown_window_start)
+            if countdown_window_start <= tm <= countdown_window_end:
+                countdown_left = countdown_window_end - tm
+                self.__draw_progress_bar(
+                    countdown_left,
+                    countdown_total,
+                    countdown=max(1, int(countdown_left + 0.999)),
+                    position=self.__slide_progress_position,
+                    draw_bar=False,
+                )
+        
         return (loop_running, skip_image, video_playing)  # now returns tuple with skip image flag and video_time added
     
     def stop_video(self):

@@ -1,8 +1,10 @@
 import sqlite3
 import os
+import re
 import time
 import logging
 import threading
+import datetime
 from picframe import get_image_meta
 from picframe.video_streamer import VIDEO_EXTENSIONS, get_video_info
 
@@ -10,6 +12,9 @@ from picframe.video_streamer import VIDEO_EXTENSIONS, get_video_info
 class ImageCache:
 
     EXTENSIONS = ['.png', '.jpg', '.jpeg', '.heif', '.heic']
+    IGNORE_FILENAMES = {'thumbs.db', 'desktop.ini', '.ds_store'}
+    DATE_PREFIX_RE = re.compile(r'^(\d{4})-(\d{2})-(\d{2})_')
+    FOLDER_MONTH_RE = re.compile(r'^(\d{4})-(\d{2})$')
     EXIF_TO_FIELD = {'EXIF FNumber': 'f_number',
                      'Image Make': 'make',
                      'Image Model': 'model',
@@ -21,9 +26,19 @@ class ImageCache:
                      'EXIF DateTimeOriginal': 'exif_datetime',
                      'IPTC Keywords': 'tags',
                      'IPTC Caption/Abstract': 'caption',
-                     'IPTC Object Name': 'title'}
+                     'IPTC Object Name': 'title',
+                     'EXIF WhiteBalance': 'white_balance',
+                     'EXIF Flash': 'flash',
+                     'EXIF MeteringMode': 'metering_mode',
+                     'EXIF ExposureMode': 'exposure_mode',
+                     'EXIF Software': 'software',
+                     'Image Artist': 'artist',
+                     'Image Copyright': 'copyright',
+                     'EXIF LensMake': 'lens_make',
+                     'EXIF LensModel': 'lens_model'}
 
-    def __init__(self, picture_dir, follow_links, db_file, geo_reverse, update_interval, portrait_pairs=False):
+    def __init__(self, picture_dir, follow_links, db_file, geo_reverse, update_interval,
+                 portrait_pairs=False, enable_smart_cache=False, date_range_days=15):
         # TODO these class methods will crash if Model attempts to instantiate this using a
         # different version from the latest one - should this argument be taken out?
         self.__modified_folders = []
@@ -36,16 +51,28 @@ class ImageCache:
         self.__db_file = db_file
         self.__geo_reverse = geo_reverse
         self.__update_interval = update_interval
-        self.__portrait_pairs = portrait_pairs  # TODO have a function to turn this on and off?
+        self.__portrait_pairs = portrait_pairs
+        self.__enable_smart_cache = enable_smart_cache
+        self.__date_range_days = date_range_days
+        self.__batch_size = 50
+        self.__folder_cache = {}  # Cache for folder mtimes to avoid repeated stat calls
+        self.__last_full_scan_time = 0
+        self.__full_scan_interval = 300  # Only do full folder scan every 5 minutes
         self.__db = self.__create_open_db(self.__db_file)
         self.__db_write_lock = threading.Lock()  # lock to serialize db writes between threads
         # NB this is where the required schema is set
-        self.__update_schema(3)
+        self.__update_schema(5)
 
         self.__keep_looping = True
         self.__pause_looping = False
         self.__shutdown_completed = False
         self.__purge_files = False
+        self.__current_file = None
+        self.__scan_total_files = 0
+        self.__scan_processed_files = 0
+        self.__folder_scan_queue = []
+        self.__folder_walk_iter = None
+        self.__folder_walk_done = True
 
         t = threading.Thread(target=self.__loop)
         t.start()
@@ -74,26 +101,48 @@ class ImageCache:
         self.__purge_files = True
 
     def update_cache(self):
-        """Update the cache database with new and/or modified files
-        """
+        """Update the cache database with new and/or modified files."""
 
         self.__logger.debug('Updating cache')
 
-        # If the current collection of updated files is empty, check for disk-based changes
-        if not self.__modified_files:
-            self.__logger.debug('No unprocessed files in memory, checking disk')
+        # Rebuild folder queue only when scan fully completed and queue drained
+        if self.__folder_walk_done and not self.__folder_scan_queue and not self.__modified_files:
             self.__modified_folders = self.__get_modified_folders()
-            self.__modified_files = self.__get_modified_files(self.__modified_folders)
-            self.__logger.debug('Found %d new files on disk', len(self.__modified_files))
+            self.__folder_scan_queue = sorted(list(self.__modified_folders), key=lambda x: self.__folder_priority(x[0]))
+            self.__folder_walk_done = False if self.__folder_scan_queue else True
+            self.__scan_total_files = 0
+            self.__scan_processed_files = 0
+            self.__logger.debug('Queued %d folders for file scan', len(self.__folder_scan_queue))
+
+        # Process a bounded number of folders each cycle to keep UI responsive
+        folders_added = 0
+        while self.__folder_scan_queue and len(self.__modified_files) < self.__batch_size * 4 and folders_added < 20 and not self.__pause_looping:
+            folder_entry = self.__folder_scan_queue.pop(0)
+            folder_files = self.__get_modified_files([folder_entry])
+            self.__modified_files.extend(folder_files)
+            self.__scan_total_files += len(folder_files)
+            folders_added += 1
+
+        if not self.__folder_scan_queue:
+            self.__folder_walk_done = True
+
+        if self.__scan_total_files == 0 and self.__folder_walk_done and not self.__folder_scan_queue and not self.__modified_files:
+            self.__logger.debug('No files pending for caching in this cycle')
 
         # While we have files to process and looping isn't paused
         while self.__modified_files and not self.__pause_looping:
             file = self.__modified_files.pop(0)
+            self.__current_file = file
             self.__logger.debug('Inserting: %s', file)
-            self.__insert_file(file)
+            try:
+                self.__insert_file(file)
+            except Exception as e:
+                self.__logger.warning('Skipping unreadable media %s: %s', file, e)
+            self.__scan_processed_files += 1
+        self.__current_file = None
 
-        # If we've process all files in the current collection, update the cached folder info
-        if not self.__modified_files:
+        # If we've processed all files and exhausted folder queue, update cached folder info
+        if not self.__modified_files and not self.__folder_scan_queue and self.__folder_walk_done:
             self.__update_folder_info(self.__modified_folders)
             self.__modified_folders.clear()
 
@@ -105,6 +154,36 @@ class ImageCache:
         self.__db_write_lock.acquire()
         self.__db.commit()
         self.__db_write_lock.release()
+
+        if self.__enable_smart_cache:
+            self.__purge_outside_date_window()
+
+    def get_status(self):
+        """Return cache loading status for startup progress UI."""
+        total = self.__scan_total_files
+        processed = self.__scan_processed_files
+        percent = (processed / total * 100.0) if total > 0 else 0.0
+        return {
+            'loading': bool(self.__modified_files or self.__modified_folders or self.__folder_scan_queue or not self.__folder_walk_done),
+            'file_count': self.get_file_count(),
+            'current_file': self.__current_file,
+            'scan_total': total,
+            'scan_processed': processed,
+            'scan_percent': percent,
+        }
+
+    def refresh_date_window(self):
+        """Trigger smart-cache cleanup for current date window."""
+        if self.__enable_smart_cache:
+            self.__purge_outside_date_window()
+
+    def get_file_count(self):
+        """Return number of indexed media files in DB."""
+        try:
+            row = self.__db.execute("SELECT COUNT(*) AS cnt FROM file").fetchone()
+            return row['cnt'] if row is not None else 0
+        except Exception:
+            return 0
 
     def query_cache(self, where_clause, sort_clause='fname ASC'):
         cursor = self.__db.cursor()
@@ -233,11 +312,26 @@ class ImageCache:
                 height INTEGER DEFAULT 0 NOT NULL,
                 title TEXT,
                 caption TEXT,
-                tags TEXT
+                tags TEXT,
+                white_balance TEXT,
+                flash TEXT,
+                metering_mode TEXT,
+                exposure_mode TEXT,
+                software TEXT,
+                artist TEXT,
+                copyright TEXT,
+                lens_make TEXT,
+                lens_model TEXT
             )"""
 
         sql_meta_index = """
             CREATE INDEX IF NOT EXISTS exif_datetime ON meta (exif_datetime)"""
+
+        sql_file_index = """
+            CREATE INDEX IF NOT EXISTS file_last_modified ON file (last_modified)"""
+
+        sql_folder_missing_index = """
+            CREATE INDEX IF NOT EXISTS folder_missing ON folder (missing)"""
 
         sql_location_table = """
             CREATE TABLE IF NOT EXISTS location (
@@ -294,8 +388,17 @@ class ImageCache:
 
         db = sqlite3.connect(db_file, check_same_thread=False)
         db.row_factory = sqlite3.Row  # make results accessible by field name
+        
+        # Enable WAL mode for better crash recovery and concurrent access
+        db.execute("PRAGMA journal_mode=WAL")
+        # Set a reasonable busy timeout
+        db.execute("PRAGMA busy_timeout=5000")
+        # Enable foreign keys
+        db.execute("PRAGMA foreign_keys=ON")
+        
         for item in (sql_folder_table, sql_file_table, sql_meta_table, sql_location_table, sql_meta_index,
-                     sql_all_data_view, sql_db_info_table, sql_clean_file_trigger, sql_clean_meta_trigger):
+                     sql_file_index, sql_folder_missing_index, sql_all_data_view, sql_db_info_table, 
+                     sql_clean_file_trigger, sql_clean_meta_trigger):
             db.execute(item)
 
         return db
@@ -344,6 +447,25 @@ class ImageCache:
                 self.__db.execute("ALTER TABLE file ADD COLUMN displayed_count INTEGER default 0 NOT NULL")
                 self.__db.execute("ALTER TABLE file ADD COLUMN last_displayed REAL DEFAULT 0 NOT NULL")
 
+            if schema_version <= 3:
+                # Migrate to db schema v4
+                # Add additional EXIF fields
+                self.__db.execute("ALTER TABLE meta ADD COLUMN white_balance TEXT")
+                self.__db.execute("ALTER TABLE meta ADD COLUMN flash TEXT")
+                self.__db.execute("ALTER TABLE meta ADD COLUMN metering_mode TEXT")
+                self.__db.execute("ALTER TABLE meta ADD COLUMN exposure_mode TEXT")
+                self.__db.execute("ALTER TABLE meta ADD COLUMN software TEXT")
+                self.__db.execute("ALTER TABLE meta ADD COLUMN artist TEXT")
+                self.__db.execute("ALTER TABLE meta ADD COLUMN copyright TEXT")
+                self.__db.execute("ALTER TABLE meta ADD COLUMN lens_make TEXT")
+                self.__db.execute("ALTER TABLE meta ADD COLUMN lens_model TEXT")
+
+            if schema_version <= 4:
+                # Migrate to db schema v5
+                # Add indexes for better performance on large databases
+                self.__db.execute("CREATE INDEX IF NOT EXISTS file_last_modified ON file (last_modified)")
+                self.__db.execute("CREATE INDEX IF NOT EXISTS folder_missing ON folder (missing)")
+
             # Finally, update the db's schema version stamp to the app's requested version
             self.__db.execute('DELETE FROM db_info')
             self.__db.execute('INSERT INTO db_info VALUES(?)', (required_db_schema_version,))
@@ -354,16 +476,87 @@ class ImageCache:
     #     - Found on disk, but newer than the associated record in the 'folder' table
     #     - Found on disk, but flagged as 'missing' in the 'folder' table
     # --- Note that all folders returned currently exist on disk
+    def __month_in_window(self, month):
+        now_month = time.localtime().tm_mon
+        diff = abs(month - now_month)
+        return min(diff, 12 - diff) <= 1
+
+    def __folder_priority(self, folder_path):
+        """Sort folders so month-near-current are scanned first for faster startup."""
+        base = os.path.basename(folder_path)
+        m = ImageCache.FOLDER_MONTH_RE.match(base)
+        if m is None:
+            return 99
+        try:
+            month = int(m.group(2))
+        except Exception:
+            return 99
+        now_month = time.localtime().tm_mon
+        diff = abs(month - now_month)
+        return min(diff, 12 - diff)
+
+    def __folder_maybe_in_date_window(self, folder_path):
+        """Fast prefilter by folder naming convention YYYY-MM for smart cache."""
+        if not self.__enable_smart_cache:
+            return True
+        base = os.path.basename(folder_path)
+        m = ImageCache.FOLDER_MONTH_RE.match(base)
+        if m is None:
+            return True  # allow non-standard folders; filename filter remains authoritative
+        try:
+            month = int(m.group(2))
+        except Exception:
+            return True
+        return self.__month_in_window(month)
+
+    def __get_seed_folders(self):
+        """Return likely hot folders first (Photos/Videos YYYY-MM near current month)."""
+        seeds = []
+        for root_name in ("Photos", "Videos"):
+            root_path = os.path.join(self.__picture_dir, root_name)
+            if not os.path.isdir(root_path):
+                continue
+            try:
+                entries = os.listdir(root_path)
+            except OSError:
+                continue
+            for name in entries:
+                full = os.path.join(root_path, name)
+                if not os.path.isdir(full):
+                    continue
+                if self.__folder_priority(full) <= 1:
+                    try:
+                        mod_tm = int(os.stat(full).st_mtime)
+                    except OSError:
+                        continue
+                    seeds.append((full, mod_tm))
+        return seeds
+
     def __get_modified_folders(self):
         out_of_date_folders = []
         sql_select = "SELECT * FROM folder WHERE name = ?"
-        for dir in [d[0] for d in os.walk(self.__picture_dir, followlinks=self.__follow_links)]:
-            if os.path.basename(dir):
-                if os.path.basename(dir)[0] == '.':
-                    continue  # ignore hidden folders
-            mod_tm = int(os.stat(dir).st_mtime)
+        file_table_empty = self.get_file_count() == 0
+
+        # Fast boot path: seed likely relevant folders to avoid long 0-file startup
+        if file_table_empty and self.__enable_smart_cache:
+            seeded = self.__get_seed_folders()
+            if seeded:
+                return seeded
+
+        for dir, _subdirs, _files in os.walk(self.__picture_dir, followlinks=self.__follow_links):
+            base = os.path.basename(dir)
+            if base and base.startswith('.'):
+                continue  # ignore hidden folders
+            if not self.__folder_maybe_in_date_window(dir):
+                continue
+            try:
+                mod_tm = int(os.stat(dir).st_mtime)
+            except OSError:
+                continue
             found = self.__db.execute(sql_select, (dir,)).fetchone()
-            if not found or found['last_modified'] < mod_tm or found['missing'] == 1:
+            if file_table_empty:
+                out_of_date_folders.append((dir, mod_tm))
+            elif not found or found['last_modified'] < mod_tm or found['missing'] == 1:
                 out_of_date_folders.append((dir, mod_tm))
         return out_of_date_folders
 
@@ -378,11 +571,19 @@ class ImageCache:
             WHERE file.basename = ? AND file.extension = ? AND folder.name = ? AND file.last_modified >= ?
         """
         for dir, _date in modified_folders:
-            for file in os.listdir(dir):
+            try:
+                dir_entries = os.listdir(dir)
+            except OSError as e:
+                self.__logger.warning("Can't list directory %s: %s", dir, e)
+                continue
+            for file in dir_entries:
+                if file.lower() in ImageCache.IGNORE_FILENAMES:
+                    continue
                 base, extension = os.path.splitext(file)
                 if (extension.lower() in (ImageCache.EXTENSIONS + VIDEO_EXTENSIONS)
-                        # have to filter out all the Apple junk
                         and '.AppleDouble' not in dir and not file.startswith('.')):
+                    if self.__enable_smart_cache and not self.__filename_in_date_window(file):
+                        continue
                     full_file = os.path.join(dir, file)
                     mod_tm = os.path.getmtime(full_file)
                     found = self.__db.execute(sql_select, (base, extension.lstrip("."), dir, mod_tm)).fetchone()
@@ -402,12 +603,15 @@ class ImageCache:
         base, extension = os.path.splitext(file_only)
 
         # Get the file's meta info and build the INSERT statement dynamically
-        meta = {}
         ext = os.path.splitext(file)[1].lower()
-        if ext in VIDEO_EXTENSIONS: # no exif info available
+        if ext in VIDEO_EXTENSIONS:  # no exif info available
             meta = self.__get_video_info(file)
         else:
-            meta = self.__get_exif_info(file)
+            try:
+                meta = self.__get_exif_info(file)
+            except Exception as e:
+                self.__logger.warning('Exif read failed for %s: %s', file, e)
+                return
         meta_insert = self.__get_meta_sql_from_dict(meta)
         vals = list(meta.values())
         vals.insert(0, file)
@@ -472,6 +676,45 @@ class ImageCache:
                 self.__db_write_lock.release()
             self.__purge_files = False
 
+    def __filename_in_date_window(self, file_name):
+        """Return True if filename has YYYY-MM-DD_ prefix within +/- days, year-agnostic."""
+        m = ImageCache.DATE_PREFIX_RE.match(file_name)
+        if m is None:
+            return False
+        try:
+            month = int(m.group(2))
+            day = int(m.group(3))
+        except Exception:
+            return False
+
+        today = datetime.date.today()
+        candidates = []
+        for yr in (today.year - 1, today.year, today.year + 1):
+            try:
+                candidates.append(datetime.date(yr, month, day))
+            except ValueError:
+                # Handle leap-day style invalid dates on non-leap years
+                if month == 2 and day == 29:
+                    candidates.append(datetime.date(yr, 2, 28))
+        if not candidates:
+            return False
+
+        min_delta_days = min(abs((c - today).days) for c in candidates)
+        return min_delta_days <= self.__date_range_days
+
+    def __purge_outside_date_window(self):
+        """Keep only files with YYYY-MM-DD_ prefix in +/- date_range_days window."""
+        delete_ids = []
+        sql = "SELECT file_id, basename, extension FROM file"
+        for row in self.__db.execute(sql):
+            fname = f"{row['basename']}.{row['extension']}"
+            if not self.__filename_in_date_window(fname):
+                delete_ids.append((row['file_id'],))
+        if delete_ids:
+            self.__db_write_lock.acquire()
+            self.__db.executemany("DELETE FROM file WHERE file_id = ?", delete_ids)
+            self.__db_write_lock.release()
+
     def __get_exif_info(self, file_path_name):
         exifs = get_image_meta.GetImageMeta(file_path_name)
         # Dict to store interesting EXIF data
@@ -520,6 +763,17 @@ class ImageCache:
         e['tags'] = exifs.get_exif('IPTC Keywords')
         e['title'] = exifs.get_exif('IPTC Object Name')
         e['caption'] = exifs.get_exif('IPTC Caption/Abstract')
+
+        # Additional EXIF fields
+        e['white_balance'] = exifs.get_exif('EXIF WhiteBalance')
+        e['flash'] = exifs.get_exif('EXIF Flash')
+        e['metering_mode'] = exifs.get_exif('EXIF MeteringMode')
+        e['exposure_mode'] = exifs.get_exif('EXIF ExposureMode')
+        e['software'] = exifs.get_exif('EXIF Software')
+        e['artist'] = exifs.get_exif('Image Artist')
+        e['copyright'] = exifs.get_exif('Image Copyright')
+        e['lens_make'] = exifs.get_exif('EXIF LensMake')
+        e['lens_model'] = exifs.get_exif('EXIF LensModel')
 
         return e
 

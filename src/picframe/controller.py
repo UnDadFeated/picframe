@@ -5,6 +5,9 @@ import time
 import signal
 import sys
 import ssl
+import os
+import datetime
+from zoneinfo import ZoneInfo
 
 
 def make_date(txt):
@@ -307,6 +310,15 @@ class Controller:
             fade_time = self.__model.fade_time
 
             tm = time.time()
+            
+            # Check date filter at local midnight in configured timezone
+            tz_name = self.__model.get_viewer_config().get('cache_refresh_timezone', 'America/Los_Angeles')
+            now_local = datetime.datetime.now(ZoneInfo(tz_name))
+            midnight_key = now_local.strftime('%Y-%m-%d')
+            if not hasattr(self, '_date_filter_checked_day') or self._date_filter_checked_day != midnight_key:
+                self.__model.check_date_filter()
+                self._date_filter_checked_day = midnight_key
+            
             pics = None  # get_next_file returns a tuple of two in case paired portraits have been specified
             if not self.paused and tm > self.__next_tm or self.__force_navigate:
                 self.__next_tm = tm + self.__model.time_delay
@@ -329,7 +341,25 @@ class Controller:
                     if self.__mqtt_config['use_mqtt']:
                         self.publish_state(pics[0].fname, image_attr)
             self.__model.pause_looping = self.__viewer.is_in_transition()
+            cache_status = self.__model.get_cache_status()
+            self.__viewer.set_loaded_file_count(cache_status.get('file_count', 0))
+            self.__viewer.set_cache_current_file(cache_status.get('current_file'))
+            self.__viewer.set_cache_scan_stats(
+                cache_status.get('scan_processed', 0),
+                cache_status.get('scan_total', 0),
+                cache_status.get('scan_percent', 0.0),
+            )
+            self.__viewer.set_cache_loading(cache_status.get('loading', False))
             (loop_running, skip_image, video_playing) = self.__viewer.slideshow_is_running(pics, time_delay, fade_time, self.__paused)
+            
+            # Mark first real image shown even if cache state already flipped
+            if pics is not None and pics[0] is not None:
+                no_files_img = self.__model.get_model_config().get('no_files_img', '')
+                if os.path.expanduser(no_files_img) != pics[0].fname:
+                    self.__viewer.set_first_real_image_shown(True)
+                    if self.__viewer._ViewerDisplay__cache_loading:
+                        self.__viewer.set_cache_loading(False)
+            
             if not loop_running:
                 break
             if skip_image or (video_extended and not video_playing):
@@ -341,6 +371,19 @@ class Controller:
 
     def start(self):
         self.__viewer.slideshow_start()
+        
+        # Check if cache is still loading and set up callback
+        if self.__model.is_cache_loading():
+            self.__viewer.set_cache_loading(True)
+            cache_status = self.__model.get_cache_status()
+            self.__viewer.set_loaded_file_count(cache_status.get('file_count', 0))
+            self.__viewer.set_cache_current_file(cache_status.get('current_file'))
+            self.__viewer.set_cache_scan_stats(
+                cache_status.get('scan_processed', 0),
+                cache_status.get('scan_total', 0),
+                cache_status.get('scan_percent', 0.0),
+            )
+        
         from picframe.interface_peripherals import InterfacePeripherals
         self.__interface_peripherals = InterfacePeripherals(self.__model, self.__viewer, self)
 

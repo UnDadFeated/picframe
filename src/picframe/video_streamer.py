@@ -35,7 +35,7 @@ from PIL import Image
 
 from .video_metadata import VideoMetadata
 
-VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.flv', '.mov', '.avi', '.webm', '.hevc']
+VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.flv', '.mov', '.avi', '.webm', '.hevc', '.av1', '.webm']
 
 _image_file_lock = threading.Lock()
 
@@ -469,7 +469,7 @@ class VideoStreamer:
     """
 
     def __init__(self, x: int, y: int, w: int, h: int, video_path: Optional[str] = None,
-                 fit_display: bool = False) -> None:
+                 fit_display: bool = False, volume: int = 100) -> None:
         self.__logger = logging.getLogger("video_streamer")
         self.__logger.debug("Initializing VideoStreamer")
 
@@ -494,7 +494,8 @@ class VideoStreamer:
             sys.executable,
             os.path.join(os.path.dirname(__file__), "video_player.py"),
             "--x", str(x), "--y", str(y), "--w", str(w), "--h", str(h),
-            "--log_level", log_level_str
+            "--log_level", log_level_str,
+            "--volume", str(volume)
         ]
         if fit_display:
             cmd.append("--fit_display")

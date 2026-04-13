@@ -27,12 +27,13 @@ class VideoPlayer:
         - pause: Pause playback
         - resume: Resume playback
         - stop: Stop playback and hide window
+        - volume <0-100>: Set volume level
 
     State changes are sent to stdout as:
         STATE:PLAYING, STATE:ENDED, etc.
     """
 
-    def __init__(self, x: int, y: int, w: int, h: int, fit_display: bool = False) -> None:
+    def __init__(self, x: int, y: int, w: int, h: int, fit_display: bool = False, volume: int = 100) -> None:
         self.logger = logging.getLogger("video_player")
         self.logger.debug("Initializing VideoPlayer")
         self.window: Optional[ctypes.c_void_p] = None
@@ -46,6 +47,7 @@ class VideoPlayer:
         self.w = w
         self.h = h
         self.fit_display = fit_display
+        self.volume = volume
         self.cmd_queue: queue.Queue[str] = queue.Queue()
         self.stdin_thread = threading.Thread(target=self._stdin_reader, daemon=True)
         self._vlc_event_manager: Optional[vlc.EventManager] = None
@@ -84,8 +86,8 @@ class VideoPlayer:
             sdl2.SDL_DestroyWindow(self.window)
             return False
 
-        # Initialize VLC
-        vlc_args = ['--no-audio', '--quiet', '--verbose=0']
+        # Initialize VLC - enable audio
+        vlc_args = ['--quiet', '--verbose=0']
         try:
             self.instance = vlc.Instance(vlc_args)
             self.player = self.instance.media_player_new()
@@ -129,6 +131,9 @@ class VideoPlayer:
         # Register VLC event callbacks
         self._vlc_event_manager = self.player.event_manager()
         self._register_vlc_events()
+
+        # Set initial volume
+        self.player.audio_set_volume(self.volume)
 
         return True
 
@@ -324,6 +329,14 @@ class VideoPlayer:
             if sdl2.SDL_GetWindowFlags(self.window) & sdl2.SDL_WINDOW_SHOWN:
                 sdl2.SDL_HideWindow(self.window)
             self.player.stop()
+        elif cmd[0] == "volume" and len(cmd) > 1:
+            try:
+                vol = int(cmd[1])
+                vol = max(0, min(100, vol))  # Clamp between 0 and 100
+                self.player.audio_set_volume(vol)
+                self.logger.info("Volume set to %d", vol)
+            except ValueError:
+                self.logger.warning("Invalid volume value: %s", cmd[1])
 
     def _wait_for_window_shown(self, timeout: float = 4.0) -> bool:
         """Wait for the SDL_WINDOWEVENT_SHOWN event for this window."""
@@ -365,6 +378,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fit_display", action="store_true")
     parser.add_argument("--log_level", type=str, default="info", choices=["debug", "info", "warning", "error", "critical"],
                         help="Set the logging level (default: info)")
+    parser.add_argument("--volume", type=int, default=100, help="Volume level 0-100 (default: 100)")
     return parser.parse_args()
 
 
@@ -376,7 +390,7 @@ def main() -> None:
     args = parse_args()
     log_level = getattr(logging, args.log_level.upper(), logging.INFO)
     logging.basicConfig(level=log_level)
-    player = VideoPlayer(args.x, args.y, args.w, args.h, args.fit_display)
+    player = VideoPlayer(args.x, args.y, args.w, args.h, args.fit_display, args.volume)
     if player.setup():
         player.run()
 

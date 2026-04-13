@@ -26,6 +26,28 @@ DEFAULT_CONFIG = {
         'text_opacity': 1.0,
         'text_x_margin': 100,
         'text_y_margin': 0,
+        'text_x_position': None,              # absolute X position in pixels (overrides text_x_margin when set)
+        'text_y_position': None,              # absolute Y position in pixels (overrides text_y_margin when set)
+        'text_position_mode': 'margin',        # 'margin' = use margins, 'absolute' = use x/y_position
+        'text_width': None,                   # max width for text wrapping in pixels
+        'text_line_spacing': 1.2,              # line spacing multiplier for multi-line text
+        'video_volume': 100,                   # video volume 0-100
+        'slide_progress_show': True,          # show slide countdown text
+        'slide_progress_font_size': 11,        # slide countdown text font size
+        'show_cache_indicator': True,          # show cache building indicator on startup
+        'cache_progress_position': 'bottom-right',  # cache progress bar anchor: top-right or bottom-right
+        'cache_progress_x_offset': 58,         # cache progress bar X pixel offset
+        'cache_progress_y_offset': 59,         # cache progress bar Y pixel offset from bottom/top anchor
+        'slide_progress_position': 'top-right',  # slide-change progress bar anchor
+        'slide_progress_x_offset': 0,         # slide progress bar X pixel offset
+        'slide_progress_y_offset': 0,         # slide progress bar Y pixel offset
+        'log_level': 'WARNING',                # logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+        'log_max_days': 10,                    # maximum days to keep log files
+        'date_range_days': 15,                 # show photos within +/- this many days of current date
+        'enable_date_filter': False,           # enable date-based filtering (photos from around current date)
+        'enable_smart_cache': True,            # only retain/cache media in configured date window
+        'cache_refresh_timezone': 'America/Los_Angeles',  # timezone for midnight refresh
+        'cache_start_min_files': 0,            # keep waiting screen until this many files are cached (0 = wait until cache build completes)
         'fit': False,
         'video_fit_display': True,
         'kenburns': False,
@@ -120,13 +142,15 @@ DEFAULT_CONFIG = {
 }
 
 
-class Pic:  # TODO could this be done more elegantly with namedtuple
+class Pic:
 
     def __init__(self, fname, last_modified, file_id, orientation=1, exif_datetime=0,
                  f_number=0, exposure_time=None, iso=0, focal_length=None,
                  make=None, model=None, lens=None, rating=None, latitude=None,
                  longitude=None, width=0, height=0, is_portrait=0, location=None, title=None,
-                 caption=None, tags=None):
+                 caption=None, tags=None, white_balance=None, flash=None, metering_mode=None,
+                 exposure_mode=None, software=None, artist=None, copyright=None,
+                 lens_make=None, lens_model=None):
         self.fname = fname
         self.last_modified = last_modified
         self.file_id = file_id
@@ -149,6 +173,15 @@ class Pic:  # TODO could this be done more elegantly with namedtuple
         self.tags = tags
         self.caption = caption
         self.title = title
+        self.white_balance = white_balance
+        self.flash = flash
+        self.metering_mode = metering_mode
+        self.exposure_mode = exposure_mode
+        self.software = software
+        self.artist = artist
+        self.copyright = copyright
+        self.lens_make = lens_make
+        self.lens_model = lens_model
 
 
 class Model:
@@ -188,6 +221,7 @@ class Model:
         self.__file_index = 0  # pointer to next position in __file_list
         self.__current_pics = (None, None)  # this hold a tuple of (pic, None) or two pic objects if portrait pairs
         self.__num_run_through = 0
+        self.__date_filter_applied = False  # Track if date filter was applied on current reload
 
         model_config = self.get_model_config()  # alias for brevity as used several times below
         try:
@@ -200,12 +234,15 @@ class Model:
         self.__geo_reverse = geo_reverse.GeoReverse(model_config['load_geoloc'],
                                                     model_config['geo_key'],
                                                     key_list=self.get_model_config()['key_list'])
+        viewer_config = self.get_viewer_config()
         self.__image_cache = image_cache.ImageCache(self.__pic_dir,
                                                     model_config['follow_links'],
                                                     os.path.expanduser(model_config['db_file']),
                                                     self.__geo_reverse,
                                                     model_config['update_interval'],
-                                                    model_config['portrait_pairs'])
+                                                    model_config['portrait_pairs'],
+                                                    viewer_config.get('enable_smart_cache', False),
+                                                    viewer_config.get('date_range_days', 15))
         self.__deleted_pictures = model_config['deleted_pictures']
         self.__no_files_img = os.path.expanduser(model_config['no_files_img'])
         self.__sort_cols = model_config['sort_cols']
@@ -220,6 +257,32 @@ class Model:
 
     def get_model_config(self):
         return self.__config['model']
+
+    def get_cache_status(self):
+        """Return cache status info for progress indicator"""
+        if self.__image_cache is None:
+            return {
+                'file_count': 0,
+                'loading': self.__reload_files,
+                'current_file': None,
+                'total_files_known': False,
+            }
+        cache_status = self.__image_cache.get_status()
+        return {
+            'file_count': cache_status.get('file_count', self.__number_of_files),
+            'loading': self.__reload_files or cache_status.get('loading', False),
+            'current_file': cache_status.get('current_file'),
+            'scan_total': cache_status.get('scan_total', 0),
+            'scan_processed': cache_status.get('scan_processed', 0),
+            'scan_percent': cache_status.get('scan_percent', 0.0),
+            'total_files_known': True,
+        }
+    
+    def is_cache_loading(self):
+        """Check if cache is still loading/rebuilding"""
+        if self.__image_cache is None:
+            return self.__reload_files
+        return self.__reload_files or self.__image_cache.get_status().get('loading', False)
 
     def get_mqtt_config(self):
         return self.__config['mqtt']
@@ -378,6 +441,15 @@ class Model:
         self.__file_index = (self.__file_index - 2) % self.__number_of_files  # TODO deleting last image results in ZeroDivisionError # noqa: E501
 
     def get_next_file(self):
+        min_files = self.__config['viewer'].get('cache_start_min_files', 0)
+        if self.__image_cache is not None and self.__number_of_files == 0:
+            cache_status = self.__image_cache.get_status()
+            if (min_files == 0 and cache_status.get('loading', False)) or \
+               (min_files > 0 and self.__image_cache.get_file_count() < min_files):
+                self.__reload_files = True
+                self.__current_pics = (Pic(self.__no_files_img, 0, 0), None)
+                return self.__current_pics
+
         missing_images = 0
 
         # loop until we acquire a valid image set
@@ -479,6 +551,16 @@ class Model:
         where_list = ["fname LIKE '{}/%'".format(picture_dir)]  # TODO / on end to stop 'test' also selecting test1 test2 etc  # noqa: E501
         where_list.extend(self.__where_clauses.values())
 
+        # Apply date range filter if enabled (show photos within +/- date_range_days of current date)
+        if self.__config['viewer'].get('enable_date_filter', False):
+            date_range = self.__config['viewer'].get('date_range_days', 15)
+            now = time.time()
+            date_from = now - (date_range * 24 * 3600)
+            date_to = now + (date_range * 24 * 3600)
+            where_list.append("exif_datetime >= {:.0f}".format(date_from))
+            where_list.append("exif_datetime <= {:.0f}".format(date_to))
+            self.__logger.debug("Date filter applied: +/- %d days from %s", date_range, time.strftime("%Y-%m-%d", time.localtime(now)))
+
         if len(where_list) > 0:
             where_clause = " AND ".join(where_list)  # TODO now always true - remove unreachable code
         else:
@@ -506,6 +588,20 @@ class Model:
         self.__file_index = 0
         self.__num_run_through = 0
         self.__reload_files = False
+        self.__date_filter_applied = True
+        
+        self.__logger.info("Loaded %d files from cache", self.__number_of_files)
+        if self.__number_of_files > 0:
+            self.__reload_files = False
+        else:
+            self.__reload_files = True
+
+    def check_date_filter(self):
+        """Check and update date filter/cache window daily at local midnight."""
+        if self.__config['viewer'].get('enable_date_filter', False):
+            self.__reload_files = True  # Force reload to apply new date range
+            if self.__image_cache is not None:
+                self.__image_cache.refresh_date_window()
 
     def __generate_random_string(self, length):
         random_bytes = os.urandom(length // 2)
