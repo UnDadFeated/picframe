@@ -8,7 +8,7 @@ This repository is a practical fork of the original Picframe project, tuned for 
 
 ## What this fork changes
 
-Compared to the original upstream `main` branch, this fork adds reliability improvements, display/power handling updates, better control behavior, and deployment-focused configuration defaults.
+Compared to the original upstream `main` branch, this fork adds reliability improvements, display/power handling updates, better control behavior, deployment-focused configuration defaults, and modernized web control UI.
 
 ### 1) Display and power control improvements
 
@@ -44,6 +44,26 @@ Compared to the original upstream `main` branch, this fork adds reliability impr
 
 - Updated `configuration_example.yaml` to reflect this fork's actively deployed/default setup.
 
+### 7) Cache database and bad file handling
+
+- Added idempotent schema migration handling in `image_cache.py` to avoid startup failures on existing or partially migrated SQLite databases.
+- Added dedicated bad-file tracking database support (`bad_files_db`) for persistently recording unreadable/corrupt files.
+- Added skip logic so files already known to be bad can be ignored during future scans, improving cache refresh performance.
+- Added `bad_files_db` configuration entry to model defaults and deployment config.
+
+### 8) HTTP and startup resilience
+
+- Added reusable HTTP server binding (`allow_reuse_address = True`) to reduce restart-time port binding issues.
+- Added startup script hardening for user-session launch behavior under Wayland/labwc.
+- Preserved stable operation on port `9000` after prior conflict troubleshooting.
+
+### 9) Web control interface redesign
+
+- Rebuilt the control page (`src/picframe/html/index.html`) with a modern wireframe-inspired layout.
+- Reworked UI styles and interaction behavior in `src/picframe/html/pf_functions.js`.
+- Added theme toggling with dark mode as default and persisted theme preference.
+- Improved responsive layout and control readability for desktop and mobile browsers.
+
 ## Files with fork-vs-upstream differences
 
 Compared to upstream `origin/main`, this fork currently differs in these core files:
@@ -55,6 +75,7 @@ Compared to upstream `origin/main`, this fork currently differs in these core fi
 - `src/picframe/html/index.html`
 - `src/picframe/html/pf_functions.js`
 - `src/picframe/image_cache.py`
+- `src/picframe/interface_http.py`
 - `src/picframe/interface_peripherals.py`
 - `src/picframe/model.py`
 - `src/picframe/start.py`
