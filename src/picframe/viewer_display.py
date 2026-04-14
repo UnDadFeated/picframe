@@ -85,6 +85,8 @@ class ViewerDisplay:
         self.__cache_progress_y_offset = config.get('cache_progress_y_offset', 59)
         self.__cache_progress_font_size = config.get('cache_progress_font_size', 11)
         self.__cache_progress_text_width = config.get('cache_progress_text_width', 500)
+        self.__cache_progress_sprite = None  # single combined FixedString for progress text
+        self.__cache_progress_last_text = None  # last full combined text rendered
         self.__fit = config['fit']
         self.__video_fit_display = config['video_fit_display']
         self.__geo_suppress_list = config['geo_suppress_list']
@@ -152,6 +154,8 @@ class ViewerDisplay:
         if not loading:
             self.__cache_start_tm = None
             self.__initial_load_text = None
+            self.__cache_progress_sprite = None
+            self.__cache_progress_last_text = None
 
     def set_loaded_file_count(self, count: int):
         """Set the number of files loaded so far"""
@@ -527,10 +531,9 @@ class ViewerDisplay:
                 c_rng = self.__display.width * 0.5 - self.__text_x_margin  # range for x loc from L to R justified
             if self.__text_width is not None and self.__text_width < c_rng:
                 c_rng = self.__text_width
-            opacity = int(255 * float(self.__text_opacity) * self.get_brightness())
             block = pi3d.FixedString(self.__font_file, final_string, shadow_radius=3, font_size=self.__show_text_sz,
                                      shader=self.__flat_shader, justify=self.__text_justify, width=c_rng,
-                                     color=(255, 255, 255, opacity))
+                                     color=(255, 255, 255, 255))
             adj_x = (c_rng - block.sprite.width) // 2  # half amount of space outside sprite
             if self.__text_justify == "L":
                 adj_x *= -1
@@ -652,14 +655,9 @@ class ViewerDisplay:
     def __draw_cache_indicator(self, current_file: str = None):
         """Draw cache build progress at bottom-right.
 
-        Renders two right-justified sprites so the % stays at a fixed screen
-        position regardless of filename length:
-
-            [         filename -         ] [ ###% ]
-            |<-- name_box_w px wide ------>|<-52px->|
-                                           ^always here
-        Also draws 'Building cache...' centred on screen until the first real
-        image is displayed.
+        Renders the text right-aligned so both filename and % stay at fixed
+        screen positions - filename expands left, % stays anchored right.
+        Uses cached FixedString to avoid font flickering.
         """
         if self.__disable_progress_overlays:
             return
@@ -678,58 +676,43 @@ class ViewerDisplay:
             self.__initial_load_text.sprite.set_alpha(0.8)
             self.__initial_load_text.sprite.draw()
 
-        # ── Right-aligned progress text at bottom-right ──────────────────────
-        # Layout (right edge of screen →):
-        #   [  filename - (right-justified in name_box_w) ][ gap ][###% (right-justified in pct_box_w)]
-        #                                                          ^x_right (fixed)
-        pct_box_w  = 52                              # wide enough for "100%"
-        name_box_w = self.__cache_progress_text_width  # default 500 px
-        gap        = 6                               # px between the two sprites
-        margin_x   = self.__cache_progress_x_offset  # px inward from right screen edge
-        margin_y   = self.__cache_progress_y_offset  # px up from bottom screen edge
-        alpha      = int(200 * self.get_brightness())
+        margin_x = self.__cache_progress_x_offset
+        margin_y = self.__cache_progress_y_offset
+        alpha = self.get_brightness()
 
         w = self.__display.width
         h = self.__display.height
-        # pi3d origin is screen centre; right screen edge = w/2, bottom = -h/2
-        x_right = (w // 2) - margin_x
-        y_pos   = -(h // 2) + margin_y
+        y_pos = -(h // 2) + margin_y
 
-        # ── % sprite – position is FIXED every frame ─────────────────────────
         pct_val = self.__cache_scan_percent or 0.0
         pct_str = "{:.0f}%".format(pct_val)
-        pct_sprite = pi3d.FixedString(
-            self.__font_file, pct_str,
-            font_size=self.__cache_progress_font_size,
-            shader=self.__flat_shader,
-            justify="R",
-            width=pct_box_w,
-            color=(255, 255, 255, alpha)
-        )
-        # Sprite centre so its right edge lands on x_right
-        x_pct = x_right - pct_box_w // 2
-        pct_sprite.sprite.position(x_pct, y_pos, 3.6)
-        pct_sprite.sprite.draw()
 
-        # ── Filename sprite – right-aligned, ending gap px left of % sprite ──
-        basename = os.path.basename(current_file) if current_file else ""
-        # Truncate from the left so the extension is always visible
-        max_chars = 55
-        if len(basename) > max_chars:
-            basename = "..." + basename[-(max_chars - 3):]
-        name_text = (basename + " -") if basename else "Scanning..."
-        name_sprite = pi3d.FixedString(
-            self.__font_file, name_text,
-            font_size=self.__cache_progress_font_size,
-            shader=self.__flat_shader,
-            justify="R",
-            width=name_box_w,
-            color=(255, 255, 255, alpha)
-        )
-        # Sprite centre so its right edge lands (pct_box_w + gap) px left of x_right
-        x_name = x_right - pct_box_w - gap - name_box_w // 2
-        name_sprite.sprite.position(x_name, y_pos, 3.6)
-        name_sprite.sprite.draw()
+        basename = os.path.basename(current_file) if current_file else "Scanning..."
+        if len(basename) > 60:
+            basename = "..." + basename[-57:]
+
+        # Single combined string so there can never be a gap or overlap
+        combined = "{} - {}".format(basename, pct_str)
+
+        if combined != self.__cache_progress_last_text:
+            self.__cache_progress_last_text = combined
+            self.__cache_progress_sprite = pi3d.FixedString(
+                self.__font_file, combined,
+                shadow_radius=3,
+                font_size=self.__cache_progress_font_size,
+                shader=self.__flat_shader,
+                justify="L",
+                color=(255, 255, 255, 255)
+            )
+
+        if self.__cache_progress_sprite:
+            sprite_w = self.__cache_progress_sprite.sprite.width
+            # Right-anchor: position centre so right edge sits at x_right
+            x_right = (w // 2) - margin_x
+            center_x = x_right - (sprite_w / 2)
+            self.__cache_progress_sprite.sprite.position(center_x, y_pos, 3.6)
+            self.__cache_progress_sprite.sprite.set_alpha(alpha)
+            self.__cache_progress_sprite.sprite.draw()
 
     @property
     def display_width(self):

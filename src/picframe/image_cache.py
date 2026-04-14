@@ -620,12 +620,13 @@ class ImageCache:
                 full = os.path.join(root_path, name)
                 if not os.path.isdir(full):
                     continue
-                if self.__folder_priority(full) <= 1:
-                    try:
-                        mod_tm = int(os.stat(full).st_mtime)
-                    except OSError:
-                        continue
-                    seeds.append((full, mod_tm))
+                if not self.__folder_maybe_in_date_window(full):
+                    continue
+                try:
+                    mod_tm = int(os.stat(full).st_mtime)
+                except OSError:
+                    continue
+                seeds.append((full, mod_tm))
         return seeds
 
     def __get_modified_folders(self):
