@@ -1,111 +1,430 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>Picframe Control</title>
+    <style>
+        /* ── Design tokens ─────────────────────────────────────── */
+        :root {
+            --bg-base:       #0f1117;
+            --bg-surface:    #181c25;
+            --bg-elevated:   #1f2535;
+            --bg-control:    #252b3b;
+            --border:        rgba(255,255,255,.07);
+            --border-focus:  rgba(99,179,237,.5);
+            --text-1:        #edf2f7;
+            --text-2:        #8892a4;
+            --text-3:        #4e5a6e;
+            --accent:        #63b3ed;
+            --accent-hi:     #90cdf4;
+            --accent-glow:   rgba(99,179,237,.14);
+            --active-color:  #68d391;
+            --active-bg:     rgba(104,211,145,.11);
+            --active-border: rgba(104,211,145,.38);
+            --flash-color:   #f6e05e;
+            --danger-color:  #fc8181;
+            --shadow:        0 4px 24px rgba(0,0,0,.5);
+            --r-card:        14px;
+            --r-btn:         8px;
+            --t:             .17s ease;
+        }
+        [data-theme="light"] {
+            --bg-base:       #edf2f7;
+            --bg-surface:    #ffffff;
+            --bg-elevated:   #f7fafc;
+            --bg-control:    #edf2f7;
+            --border:        rgba(0,0,0,.08);
+            --border-focus:  rgba(49,130,206,.4);
+            --text-1:        #1a202c;
+            --text-2:        #4a5568;
+            --text-3:        #a0aec0;
+            --accent:        #3182ce;
+            --accent-hi:     #2b6cb0;
+            --accent-glow:   rgba(49,130,206,.1);
+            --active-color:  #276749;
+            --active-bg:     rgba(39,103,73,.08);
+            --active-border: rgba(39,103,73,.3);
+            --flash-color:   #b7791f;
+            --danger-color:  #c53030;
+            --shadow:        0 2px 14px rgba(0,0,0,.09);
+        }
+
+        /* ── Reset ──────────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg-base);
+            color: var(--text-1);
+            font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI",
+                         Roboto, Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            min-height: 100vh;
+            transition: background var(--t), color var(--t);
+        }
+
+        /* ── App grid ───────────────────────────────────────────── */
+        .app {
+            max-width: 1160px;
+            margin: 0 auto;
+            padding: 20px 18px 40px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px;
+        }
+        @media (min-width: 860px) {
+            .app {
+                grid-template-columns: 1fr 340px;
+                grid-template-areas:
+                    "topbar   topbar"
+                    "preview  controls"
+                    "status   controls";
+                align-items: start;
+            }
+            .pf-topbar   { grid-area: topbar; }
+            .pf-preview  { grid-area: preview; }
+            .pf-controls { grid-area: controls; }
+            .pf-status   { grid-area: status; }
+        }
+
+        /* ── Card shell ─────────────────────────────────────────── */
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--r-card);
+            box-shadow: var(--shadow);
+        }
+        .card-body { padding: 18px 20px; }
+        .section-label {
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: .07em;
+            text-transform: uppercase;
+            color: var(--text-3);
+            margin-bottom: 13px;
+        }
+
+        /* ── Top bar ────────────────────────────────────────────── */
+        .pf-topbar .card-body {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+        }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand-icon {
+            width: 38px; height: 38px;
+            background: var(--accent-glow);
+            border: 1px solid var(--border-focus);
+            border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--accent);
+            flex-shrink: 0;
+        }
+        .brand-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-1);
+            letter-spacing: -.01em;
+        }
+        .brand-tagline { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+
+        .icon-btn {
+            width: 36px; height: 36px;
+            background: var(--bg-control);
+            border: 1px solid var(--border);
+            border-radius: var(--r-btn);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-2);
+            transition: all var(--t);
+        }
+        .icon-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+        .sun-icon  { display: none; }
+        .moon-icon { display: block; }
+        [data-theme="light"] .sun-icon  { display: block; }
+        [data-theme="light"] .moon-icon { display: none; }
+
+        /* ── Preview ────────────────────────────────────────────── */
+        .preview-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 13px;
+        }
+        .preview-toolbar .section-label { margin-bottom: 0; flex: 1; }
+        .preview-link {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 5px 10px;
+            border-radius: 6px;
+            background: var(--bg-control);
+            border: 1px solid var(--border);
+            color: var(--text-2);
+            font-size: 12px; font-weight: 500;
+            text-decoration: none;
+            transition: all var(--t);
+        }
+        .preview-link:hover { color: var(--accent); border-color: var(--border-focus); background: var(--accent-glow); }
+        .preview-frame {
+            border-radius: 10px;
+            overflow: hidden;
+            background: #000;
+            aspect-ratio: 16/9;
+            border: 1px solid var(--border);
+            position: relative;
+        }
+        #preview_img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .refresh-dot {
+            position: absolute; bottom: 10px; right: 10px;
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--active-color);
+            opacity: 0;
+            transition: opacity .5s;
+        }
+        .refresh-dot.on { opacity: 1; }
+
+        /* ── Controls ───────────────────────────────────────────── */
+        .controls-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .apply-btn {
+            padding: 7px 15px;
+            border-radius: var(--r-btn);
+            border: none;
+            background: var(--accent);
+            color: #fff;
+            font-size: 12.5px; font-weight: 600;
+            cursor: pointer;
+            transition: all var(--t);
+        }
+        [data-theme="light"] .apply-btn { color: #fff; }
+        .apply-btn:hover { background: var(--accent-hi); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+        .ctrl-section {
+            font-size: 10px; font-weight: 700;
+            letter-spacing: .07em; text-transform: uppercase;
+            color: var(--text-3);
+            padding: 10px 0 7px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 8px;
+        }
+        .ctrl-section:first-child { padding-top: 0; }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 7px;
+            margin-bottom: 4px;
+        }
+
+        /* toggle / action button */
+        .control-btn {
+            display: flex; align-items: center; justify-content: center;
+            padding: 9px 8px;
+            border-radius: var(--r-btn);
+            border: 1px solid var(--border);
+            background: var(--bg-control);
+            color: var(--text-2);
+            font-size: 12.5px; font-weight: 500;
+            cursor: pointer;
+            text-align: center; line-height: 1.3;
+            min-height: 38px;
+            transition: all var(--t);
+        }
+        .control-btn:hover { border-color: var(--border-focus); color: var(--text-1); background: var(--accent-glow); }
+        .control-btn.active { background: var(--active-bg); border-color: var(--active-border); color: var(--active-color); font-weight: 600; }
+        .control-btn.flash  { background: rgba(246,224,94,.13); border-color: var(--flash-color); color: var(--flash-color); }
+        .control-btn.danger:hover { border-color: var(--danger-color); color: var(--danger-color); background: rgba(252,129,129,.09); }
+
+        /* text / number / date input field */
+        .control-field {
+            grid-column: 1 / -1;
+            display: flex; flex-direction: column; gap: 4px;
+            padding: 9px 11px;
+            border-radius: var(--r-btn);
+            border: 1px solid var(--border);
+            background: var(--bg-control);
+            transition: border-color var(--t);
+        }
+        .control-field:focus-within { border-color: var(--border-focus); background: var(--accent-glow); }
+        .control-field span {
+            font-size: 10px; font-weight: 700;
+            letter-spacing: .05em; text-transform: uppercase;
+            color: var(--text-3);
+        }
+        .control-field input {
+            background: transparent; border: none; outline: none;
+            color: var(--text-1); font-size: 13px; width: 100%;
+        }
+        .control-field input::placeholder { color: var(--text-3); }
+
+        /* ── Status ─────────────────────────────────────────────── */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 9px;
+        }
+        .status-tile {
+            background: var(--bg-control);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+        .status-tile-label {
+            font-size: 10px; font-weight: 700;
+            letter-spacing: .07em; text-transform: uppercase;
+            color: var(--text-3);
+            margin-bottom: 4px;
+        }
+        .status-tile-value {
+            font-size: 18px; font-weight: 700;
+            color: var(--text-1);
+            line-height: 1.2;
+        }
+        .status-tile-value.active { color: var(--active-color); }
+
+        @media (max-width: 480px) {
+            .app { padding: 12px 12px 32px; }
+            .status-grid { grid-template-columns: 1fr 1fr; }
+            .status-tile:last-child { grid-column: 1 / -1; }
+        }
+    </style>
 </head>
-<body onload="setStyle(); createSpans(); refreshData(); repeatRefresh();">
+<body>
+    <script>
+        // Apply saved theme before first paint to prevent flash of wrong theme
+        (function() {
+            var t = localStorage.getItem("picframe-theme") || "dark";
+            document.documentElement.setAttribute("data-theme", t);
+        })();
+    </script>
     <script type="text/javascript">
         const TYPES = {"bool":[5], "text":[18], "date":[12], "number":[8], "action":[5]};
+        const DANGER_IDS = new Set(["delete", "purge_files", "stop"]);
         const ids = {
-            "back": {type:"action", fn:"back={}", val:false, desc:"Previous"},
-            "next": {type:"action", fn:"next={}", val:false, desc:"Next"},
-            "paused": {type:"bool", fn:"setter", val:false, desc:"Paused"},
-            "display_is_on": {type:"bool", fn:"setter", val:false, desc:"Display"},
-            "shuffle": {type:"bool", fn:"setter", val:false, desc:"Shuffle"},
-            "text_name": {type:"bool", fn:"set_show_text={\"txt_key\":\"name\",\"val\":$val}", val:false, desc:"Name Overlay"},
-            "text_date": {type:"bool", fn:"set_show_text={\"txt_key\":\"date\",\"val\":$val}", val:false, desc:"Date Overlay"},
-            "text_folder": {type:"bool", fn:"set_show_text={\"txt_key\":\"folder\",\"val\":$val}", val:false, desc:"Folder Overlay"},
-            "text_location": {type:"bool", fn:"set_show_text={\"txt_key\":\"location\",\"val\":$val}", val:false, desc:"Location Overlay"},
-            "clear_text": {type:"action", fn:"set_show_text={}", val:false, desc:"Clear Text"},
-            "refresh_show_text": {type:"action", fn:"refresh_show_text={}", val:false, desc:"Show Text Now"},
-            "date_from": {type:"date", fn:"setter", val:0, desc:"Date From"},
-            "date_to": {type:"date", fn:"setter", val:0, desc:"Date To"},
-            "fade_time": {type:"number", fn:"setter", val:0, desc:"Fade Time"},
-            "time_delay": {type:"number", fn:"setter", val:0, desc:"Time Delay"},
-            "brightness": {type:"number", fn:"setter", val:0, desc:"Brightness"},
-            "subdirectory": {type:"text", fn:"setter", val:"", desc:"Subdirectory"},
-            "location_filter": {type:"text", fn:"setter", val:"", desc:"Location Filter"},
-            "tags_filter": {type:"text", fn:"setter", val:"", desc:"Tags Filter"},
-            "delete": {type:"action", fn:"delete={}", val:false, desc:"Delete Current"},
-            "purge_files": {type:"action", fn:"purge_files={}", val:false, desc:"Purge Missing"},
-            "stop": {type:"action", fn:"stop={}", val:false, desc:"Stop Service"}
+            "back":              {type:"action", fn:"back={}",  val:false, desc:"← Back",         group:"playback"},
+            "next":              {type:"action", fn:"next={}",  val:false, desc:"Next →",          group:"playback"},
+            "paused":            {type:"bool",   fn:"setter",   val:false, desc:"Paused",          group:"playback"},
+            "display_is_on":     {type:"bool",   fn:"setter",   val:false, desc:"Display On",      group:"playback"},
+            "shuffle":           {type:"bool",   fn:"setter",   val:false, desc:"Shuffle",         group:"playback"},
+            "text_name":         {type:"bool",   fn:"set_show_text={\"txt_key\":\"name\",\"val\":$val}",     val:false, desc:"Name",     group:"overlays"},
+            "text_date":         {type:"bool",   fn:"set_show_text={\"txt_key\":\"date\",\"val\":$val}",     val:false, desc:"Date",     group:"overlays"},
+            "text_folder":       {type:"bool",   fn:"set_show_text={\"txt_key\":\"folder\",\"val\":$val}",   val:false, desc:"Folder",   group:"overlays"},
+            "text_location":     {type:"bool",   fn:"set_show_text={\"txt_key\":\"location\",\"val\":$val}", val:false, desc:"Location", group:"overlays"},
+            "clear_text":        {type:"action", fn:"set_show_text={}",      val:false, desc:"Clear Text",    group:"overlays"},
+            "refresh_show_text": {type:"action", fn:"refresh_show_text={}",  val:false, desc:"Show Now",      group:"overlays"},
+            "date_from":         {type:"date",   fn:"setter",  val:0,  desc:"Date From",     group:"filter"},
+            "date_to":           {type:"date",   fn:"setter",  val:0,  desc:"Date To",       group:"filter"},
+            "subdirectory":      {type:"text",   fn:"setter",  val:"", desc:"Subdirectory",  group:"filter"},
+            "location_filter":   {type:"text",   fn:"setter",  val:"", desc:"Location Filter",group:"filter"},
+            "tags_filter":       {type:"text",   fn:"setter",  val:"", desc:"Tags Filter",   group:"filter"},
+            "fade_time":         {type:"number", fn:"setter",  val:0,  desc:"Fade Time",     group:"timing"},
+            "time_delay":        {type:"number", fn:"setter",  val:0,  desc:"Time Delay",    group:"timing"},
+            "brightness":        {type:"number", fn:"setter",  val:0,  desc:"Brightness",    group:"timing"},
+            "delete":            {type:"action", fn:"delete={}",       val:false, desc:"Delete Current", group:"system"},
+            "purge_files":       {type:"action", fn:"purge_files={}",  val:false, desc:"Purge Missing",  group:"system"},
+            "stop":              {type:"action", fn:"stop={}",         val:false, desc:"Stop Service",   group:"system"}
         };
     </script>
     <script type="text/javascript" src="pf_functions.js"></script>
 
-    <main class="container">
-        <header class="header">
-            <div class="header-content">
-                <div class="logo">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                        <polyline points="21 15 16 10 5 21"/>
-                    </svg>
-                    <span>Picframe</span>
+    <div class="app">
+
+        <!-- Top bar -->
+        <div class="card pf-topbar">
+            <div class="card-body">
+                <div class="brand">
+                    <div class="brand-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="brand-name">Picframe</div>
+                        <div class="brand-tagline">Digital picture frame control panel</div>
+                    </div>
                 </div>
-                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
-                    <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">
+                    <svg class="sun-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round">
                         <circle cx="12" cy="12" r="5"/>
-                        <line x1="12" y1="1" x2="12" y2="3"/>
-                        <line x1="12" y1="21" x2="12" y2="23"/>
+                        <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
                         <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
                         <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                        <line x1="1" y1="12" x2="3" y2="12"/>
-                        <line x1="21" y1="12" x2="23" y2="12"/>
+                        <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
                         <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
                         <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
                     </svg>
-                    <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <svg class="moon-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" stroke-linecap="round">
                         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
                     </svg>
                 </button>
             </div>
-            <p class="tagline">Digital picture frame control panel</p>
-        </header>
+        </div>
 
-        <section class="preview">
-            <div class="section-header">
-                <h2>Live Preview</h2>
-                <div class="preview-links">
-                    <a href="/current_image" target="_blank" rel="noopener">Full Size</a>
-                    <a href="/current_image_original" target="_blank" rel="noopener">Original</a>
+        <!-- Preview -->
+        <div class="card pf-preview">
+            <div class="card-body">
+                <div class="preview-toolbar">
+                    <span class="section-label">Live Preview</span>
+                    <a class="preview-link" href="/current_image" target="_blank" rel="noopener">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                            <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>Full Size
+                    </a>
+                    <a class="preview-link" href="/current_image_original" target="_blank" rel="noopener">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                            <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>Original
+                    </a>
+                </div>
+                <div class="preview-frame">
+                    <img id="preview_img" src="/current_image" alt="Current slideshow frame" loading="eager"/>
+                    <div class="refresh-dot" id="refresh_dot"></div>
                 </div>
             </div>
-            <div class="preview-frame">
-                <img id="preview_img" src="/current_image" alt="Current slideshow frame" loading="eager" />
-            </div>
-        </section>
+        </div>
 
-        <section class="controls">
-            <div class="section-header">
-                <h2>Controls</h2>
-                <button id="upload_button" onclick="uploadValues()">Apply</button>
+        <!-- Controls -->
+        <div class="card pf-controls">
+            <div class="card-body">
+                <div class="controls-header">
+                    <span class="section-label" style="margin-bottom:0">Controls</span>
+                    <button id="upload_button" class="apply-btn" onclick="uploadValues()">Apply Changes</button>
+                </div>
+                <div id="spans"></div>
             </div>
-            <div id="spans" class="controls-grid"></div>
-        </section>
+        </div>
 
-        <section class="info">
-            <div class="section-header">
-                <h2>Status</h2>
+        <!-- Status -->
+        <div class="card pf-status">
+            <div class="card-body">
+                <div class="section-label">Cache Status</div>
+                <div class="status-grid">
+                    <div class="status-tile">
+                        <div class="status-tile-label">Files</div>
+                        <div class="status-tile-value" id="status-files">--</div>
+                    </div>
+                    <div class="status-tile">
+                        <div class="status-tile-label">Loading</div>
+                        <div class="status-tile-value" id="status-loading">--</div>
+                    </div>
+                    <div class="status-tile">
+                        <div class="status-tile-label">Scan</div>
+                        <div class="status-tile-value" id="status-scan">--</div>
+                    </div>
+                </div>
             </div>
-            <div class="status-grid">
-                <div class="status-item">
-                    <span class="status-label">Files</span>
-                    <span class="status-value" id="status-files">--</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">Loading</span>
-                    <span class="status-value" id="status-loading">--</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">Scan</span>
-                    <span class="status-value" id="status-scan">--</span>
-                </div>
-            </div>
-        </section>
-    </main>
+        </div>
+
+    </div>
 </body>
 </html>

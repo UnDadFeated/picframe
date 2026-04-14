@@ -244,7 +244,7 @@ class Model:
                                                     self.__geo_reverse,
                                                     model_config['update_interval'],
                                                     model_config['portrait_pairs'],
-                                                    viewer_config.get('enable_smart_cache', False),
+                                                    viewer_config.get('enable_smart_cache', True),
                                                     viewer_config.get('date_range_days', 15),
                                                     os.path.expanduser(model_config.get('bad_files_db', '~/picframe_data/data/bad_files.db3')))
         self.__deleted_pictures = model_config['deleted_pictures']

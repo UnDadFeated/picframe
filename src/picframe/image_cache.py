@@ -2,6 +2,7 @@ import sqlite3
 import os
 import re
 import time
+import math
 import logging
 import threading
 import datetime
@@ -570,7 +571,11 @@ class ImageCache:
     def __month_in_window(self, month):
         now_month = time.localtime().tm_mon
         diff = abs(month - now_month)
-        return min(diff, 12 - diff) <= 1
+        # Derive month tolerance from date_range_days so the folder pre-filter
+        # stays consistent with __filename_in_date_window for both Photos and Videos.
+        # e.g. 15 days -> tolerance 1 month; 45 days -> tolerance 2 months.
+        month_tolerance = max(1, math.ceil(self.__date_range_days / 28))
+        return min(diff, 12 - diff) <= month_tolerance
 
     def __folder_priority(self, folder_path):
         """Sort folders so month-near-current are scanned first for faster startup."""
