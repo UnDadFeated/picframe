@@ -58,7 +58,7 @@ class Controller:
         self.__date_to = make_date('2038/1/1')
         self.__where_clauses = {}
         self.__sort_clause = "exif_datetime ASC"
-        self.publish_state = lambda x, y: None
+        self.publish_state = lambda *args, **kwargs: None
         self.keep_looping = True
         self.__interface_peripherals = None
         self.__interface_mqtt = None
@@ -77,8 +77,8 @@ class Controller:
         self.__paused = val
         if self.__viewer.is_video_playing():
             self.__viewer.pause_video(val)
-        pic = self.__model.get_current_pics()[0]  # only refresh left text
-        self.__viewer.reset_name_tm(pic, val, side=0, pair=self.__model.get_current_pics()[1] is not None)
+        pics = self.__model.get_current_pics()
+        self.__viewer.reset_name_tm(pics[0], val, side=0, pair=pics[1] is not None)
         if self.__mqtt_config['use_mqtt']:
             self.publish_state()
 
@@ -111,14 +111,16 @@ class Controller:
         if val is True:  # allow to be called with boolean from httpserver
             val = "ON"
         self.__viewer.set_show_text(txt_key, val)
-        for (side, pic) in enumerate(self.__model.get_current_pics()):
+        current_pics = self.__model.get_current_pics()
+        for (side, pic) in enumerate(current_pics):
             if pic is not None:
-                self.__viewer.reset_name_tm(pic, self.paused, side, self.__model.get_current_pics()[1] is not None)
+                self.__viewer.reset_name_tm(pic, self.paused, side, current_pics[1] is not None)
 
     def refresh_show_text(self):
-        for (side, pic) in enumerate(self.__model.get_current_pics()):
+        current_pics = self.__model.get_current_pics()
+        for (side, pic) in enumerate(current_pics):
             if pic is not None:
-                self.__viewer.reset_name_tm(pic, self.paused, side, self.__model.get_current_pics()[1] is not None)
+                self.__viewer.reset_name_tm(pic, self.paused, side, current_pics[1] is not None)
 
     def purge_files(self):
         self.__model.purge_files()
@@ -311,8 +313,10 @@ class Controller:
             tm = time.time()
             
             # Check date filter at local midnight in configured timezone
-            tz_name = self.__model.get_viewer_config().get('cache_refresh_timezone', 'America/Los_Angeles')
-            now_local = datetime.datetime.now(ZoneInfo(tz_name))
+            if not hasattr(self, '_tz_info'):
+                tz_name = self.__model.get_viewer_config().get('cache_refresh_timezone', 'America/Los_Angeles')
+                self._tz_info = ZoneInfo(tz_name)
+            now_local = datetime.datetime.now(self._tz_info)
             midnight_key = now_local.strftime('%Y-%m-%d')
             if not hasattr(self, '_date_filter_checked_day') or self._date_filter_checked_day != midnight_key:
                 self.__model.check_date_filter()
@@ -356,7 +360,7 @@ class Controller:
                 no_files_img = self.__model.get_model_config().get('no_files_img', '')
                 if os.path.expanduser(no_files_img) != pics[0].fname:
                     self.__viewer.set_first_real_image_shown(True)
-                    if self.__viewer._ViewerDisplay__cache_loading:
+                    if self.__viewer.is_cache_loading:
                         self.__viewer.set_cache_loading(False)
             
             if not loop_running:

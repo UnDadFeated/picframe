@@ -82,7 +82,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def do_AUTHHEAD(self):
         if self.server._auth is not None:
-            if self.headers.get("Authorization") == None:
+            if self.headers.get("Authorization") is None:
                 self.send_response(401)
                 self.send_header("WWW-Authenticate", 'Basic realm="Restricted"')
                 self.send_header("Content-type", "text/html")

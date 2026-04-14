@@ -737,7 +737,7 @@ class ImageCache:
             self.__db.execute(file_update, (dir, base, extension.lstrip("."), mod_tm, file_id))
         try:
             self.__db.execute(meta_insert, vals)
-        except:
+        except Exception:
             self.__logger.error(f"###FAILED meta_insert = {meta_insert}, vals = {vals}")
         self.__db_write_lock.release()
 
@@ -925,7 +925,7 @@ class ImageCache:
         e['focal_length'] = getattr(meta, 'focal_length', None)
         e['rating'] = getattr(meta, 'rating', None)
         e['lens'] = getattr(meta, 'lens', None)
-        e['exif_datetime'] = meta.exif_datetime if not None else os.path.getmtime(file_path_name)
+        e['exif_datetime'] = meta.exif_datetime if meta.exif_datetime is not None else os.path.getmtime(file_path_name)
 
         if meta.gps_coords is not None:
             lat, lon = meta.gps_coords

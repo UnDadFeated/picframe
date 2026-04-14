@@ -12,13 +12,10 @@ PICFRAME_DATA_DIR = 'picframe_data'
 
 
 def copy_files(pkgdir, dest, target):
-    try:
-        fullpath = os.path.join(pkgdir,  target)
-        destination = os.path.join(dest,  PICFRAME_DATA_DIR)
-        destination = os.path.join(destination,  target)
-        copytree(fullpath,  destination)
-    except Exception:
-        raise
+    fullpath = os.path.join(pkgdir,  target)
+    destination = os.path.join(dest,  PICFRAME_DATA_DIR)
+    destination = os.path.join(destination,  target)
+    copytree(fullpath,  destination)
 
 
 def create_config(root):
@@ -28,44 +25,41 @@ def create_config(root):
     destination = os.path.join(fullpath, 'configuration.yaml')
     run_start = os.path.join(fullpath_root, 'run_start.py')  # TODO for work-around on RPi4
 
-    try:
-        with open(source, "r") as file:
-            filedata = file.read()
+    with open(source, "r") as file:
+        filedata = file.read()
 
-        print("This will configure ", destination)
-        print("To keep default, just hit enter")
+    print("This will configure ", destination)
+    print("To keep default, just hit enter")
 
-        # replace all paths with selected picframe_data path
-        filedata = filedata.replace("~/picframe_data", fullpath_root)
+    # replace all paths with selected picframe_data path
+    filedata = filedata.replace("~/picframe_data", fullpath_root)
 
-        # pic_dir
-        pic_dir = input("Enter picture directory [~/Pictures]: ")
-        if pic_dir == "":
-            pic_dir = "~/Pictures"  # convert to absolute path too for work-around on RPi4 running as root
-        pic_dir = os.path.expanduser(pic_dir)
-        filedata = filedata.replace("~/Pictures", pic_dir)
+    # pic_dir
+    pic_dir = input("Enter picture directory [~/Pictures]: ")
+    if pic_dir == "":
+        pic_dir = "~/Pictures"  # convert to absolute path too for work-around on RPi4 running as root
+    pic_dir = os.path.expanduser(pic_dir)
+    filedata = filedata.replace("~/Pictures", pic_dir)
 
-        # deleted_pictures
-        deleted_pictures = input("Enter picture directory [~/DeletedPictures]: ")
-        if deleted_pictures == "":
-            deleted_pictures = "~/DeletedPictures"
-        deleted_pictures = os.path.expanduser(deleted_pictures)
-        filedata = filedata.replace("~/DeletedPictures", deleted_pictures)
+    # deleted_pictures
+    deleted_pictures = input("Enter picture directory [~/DeletedPictures]: ")
+    if deleted_pictures == "":
+        deleted_pictures = "~/DeletedPictures"
+    deleted_pictures = os.path.expanduser(deleted_pictures)
+    filedata = filedata.replace("~/DeletedPictures", deleted_pictures)
 
-        # locale
-        lan, enc = locale.getlocale()
-        if not lan:
-            (lan, enc) = ("en_US", "utf8")
-        param = input("Enter locale [" + lan + "." + enc + "]: ") or (lan + "." + enc)
-        filedata = filedata.replace("en_US.utf8", param)
+    # locale
+    lan, enc = locale.getlocale()
+    if not lan:
+        (lan, enc) = ("en_US", "utf8")
+    param = input("Enter locale [" + lan + "." + enc + "]: ") or (lan + "." + enc)
+    filedata = filedata.replace("en_US.utf8", param)
 
-        with open(destination, "w") as file:
-            file.write(filedata)
+    with open(destination, "w") as file:
+        file.write(filedata)
 
-        with open(run_start, "w") as file:  # TODO work-around for RPi4
-            file.write("from picframe import start\nstart.main()\n")
-    except Exception:
-        raise
+    with open(run_start, "w") as file:  # TODO work-around for RPi4
+        file.write("from picframe import start\nstart.main()\n")
 
 
 def check_packages(packages):

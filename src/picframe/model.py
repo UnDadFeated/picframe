@@ -1,5 +1,6 @@
 import yaml
 import os
+import shutil
 import time
 import logging
 import locale
@@ -541,8 +542,8 @@ class Model:
         # TODO should these os system calls be inside a try block
         # in case the file has been deleted after it started to show?
         if not os.path.exists(move_to_dir):
-            os.system("mkdir {}".format(move_to_dir))  # problems with ownership using python func
-        os.system("mv '{}' '{}'".format(f_to_delete, move_to_dir))  # and with SMB drives
+            os.makedirs(move_to_dir, exist_ok=True)
+        shutil.move(f_to_delete, move_to_dir)
         # find and delete record from __file_list
         for i, file_rec in enumerate(self.__file_list):
             if file_rec[0] == pic.file_id:  # database id TODO check that db tidies itself up

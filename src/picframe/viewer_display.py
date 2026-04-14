@@ -148,6 +148,11 @@ class ViewerDisplay:
         self.__disable_progress_overlays = False
         ImageFile.LOAD_TRUNCATED_IMAGES = True  # occasional damaged file hangs app
 
+    @property
+    def is_cache_loading(self) -> bool:
+        """Check whether the cache is still loading"""
+        return self.__cache_loading
+
     def set_cache_loading(self, loading: bool):
         """Set whether the cache is still loading"""
         self.__cache_loading = loading
