@@ -31,7 +31,7 @@ DEFAULT_CONFIG = {
         'text_position_mode': 'margin',        # 'margin' = use margins, 'absolute' = use x/y_position
         'text_width': None,                   # max width for text wrapping in pixels
         'text_line_spacing': 1.2,              # line spacing multiplier for multi-line text
-        'video_volume': 100,                   # video volume 0-100
+        'video_volume': 0,                   # video volume 0-100 (set to 0 to mute)
         'slide_progress_show': True,          # show slide countdown text
         'slide_progress_font_size': 11,        # slide countdown text font size
         'show_cache_indicator': True,          # show cache building indicator on startup
@@ -46,7 +46,7 @@ DEFAULT_CONFIG = {
         'log_level': 'WARNING',                # logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
         'log_max_days': 10,                    # maximum days to keep log files
         'date_range_days': 15,                 # show photos within +/- this many days of current date
-        'enable_date_filter': False,           # enable date-based filtering (photos from around current date)
+        'enable_date_filter': True,           # enable date-based filtering (photos from around current date)
         'enable_smart_cache': True,            # only retain/cache media in configured date window
         'cache_refresh_timezone': 'America/Los_Angeles',  # timezone for midnight refresh
         'cache_start_min_files': 0,            # keep waiting screen until this many files are cached (0 = wait until cache build completes)
