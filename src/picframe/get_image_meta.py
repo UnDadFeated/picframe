@@ -21,19 +21,22 @@ class GetImageMeta:
         self.__image_height: int = 0
         image = self.get_image_object(filename)
         if image:
-            self.__image_width, self.__image_height = image.size
-            exif = image.getexif()
-            self.__do_image_tags(exif)
-            self.__do_exif_tags(exif)
-            self.__do_geo_tags(exif)
-            self.__do_iptc_keywords()
             try:
-                xmp = image.getxmp()
-                if len(xmp) > 0:
-                    self.__do_xmp_keywords(xmp)
-            except Exception as e:
-                xmp = {}
-                self.__logger.warning("PILL getxmp() failed: %s -> %s", filename, e)
+                self.__image_width, self.__image_height = image.size
+                exif = image.getexif()
+                self.__do_image_tags(exif)
+                self.__do_exif_tags(exif)
+                self.__do_geo_tags(exif)
+                self.__do_iptc_keywords()
+                try:
+                    xmp = image.getxmp()
+                    if len(xmp) > 0:
+                        self.__do_xmp_keywords(xmp)
+                except Exception as e:
+                    xmp = {}
+                    self.__logger.warning("PILL getxmp() failed: %s -> %s", filename, e)
+            finally:
+                image.close()
  
     @property
     def size(self) -> tuple[int, int]:

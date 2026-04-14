@@ -866,23 +866,24 @@ class ViewerDisplay:
                 for block in range(2):
                     self.__textblocks[block] = None
 
-            if self.__sbg is None:  # first time through
-                self.__sbg = self.__sfg
-            self.__slide.set_textures([self.__sfg, self.__sbg])
-            self.__slide.unif[45:47] = self.__slide.unif[42:44]  # transfer front width and height factors to back
-            self.__slide.unif[51:53] = self.__slide.unif[48:50]  # transfer front width and height offsets
-            wh_rat = (self.__display.width * self.__sfg.iy) / (self.__display.height * self.__sfg.ix)
-            if (wh_rat > 1.0 and self.__fit) or (wh_rat <= 1.0 and not self.__fit):
-                sz1, sz2, os1, os2 = 42, 43, 48, 49
-            else:
-                sz1, sz2, os1, os2 = 43, 42, 49, 48
-                wh_rat = 1.0 / wh_rat
-            self.__slide.unif[sz1] = wh_rat
-            self.__slide.unif[sz2] = 1.0
-            self.__slide.unif[os1] = (wh_rat - 1.0) * 0.5
-            self.__slide.unif[os2] = 0.0
-            if self.__kenburns:
-                self.__xstep, self.__ystep = (self.__slide.unif[i] * 2.0 / (time_delay - fade_time) for i in (48, 49))
+            if self.__sfg is not None:
+                if self.__sbg is None:  # first time through
+                    self.__sbg = self.__sfg
+                self.__slide.set_textures([self.__sfg, self.__sbg])
+                self.__slide.unif[45:47] = self.__slide.unif[42:44]  # transfer front width and height factors to back
+                self.__slide.unif[51:53] = self.__slide.unif[48:50]  # transfer front width and height offsets
+                wh_rat = (self.__display.width * self.__sfg.iy) / (self.__display.height * self.__sfg.ix)
+                if (wh_rat > 1.0 and self.__fit) or (wh_rat <= 1.0 and not self.__fit):
+                    sz1, sz2, os1, os2 = 42, 43, 48, 49
+                else:
+                    sz1, sz2, os1, os2 = 43, 42, 49, 48
+                    wh_rat = 1.0 / wh_rat
+                self.__slide.unif[sz1] = wh_rat
+                self.__slide.unif[sz2] = 1.0
+                self.__slide.unif[os1] = (wh_rat - 1.0) * 0.5
+                self.__slide.unif[os2] = 0.0
+                if self.__kenburns:
+                    self.__xstep, self.__ystep = (self.__slide.unif[i] * 2.0 / (time_delay - fade_time) for i in (48, 49))
                 self.__slide.unif[48] = 0.0
                 self.__slide.unif[49] = 0.0
 
