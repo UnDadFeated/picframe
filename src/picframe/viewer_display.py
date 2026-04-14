@@ -151,9 +151,7 @@ class ViewerDisplay:
         self.__cache_loading = loading
         if not loading:
             self.__cache_start_tm = None
-            # Clear the initial load text when cache is done
             self.__initial_load_text = None
-            self.__progress_info_text = None
 
     def set_loaded_file_count(self, count: int):
         """Set the number of files loaded so far"""
@@ -168,7 +166,7 @@ class ViewerDisplay:
         self.__cache_current_file = file_path
 
     def set_cache_scan_stats(self, processed: int, total: int, percent: float):
-        """Set scan progress counters used by startup cache progress bar."""
+        """Set scan progress counters used by the startup cache progress text overlay."""
         self.__cache_scan_processed = processed
         self.__cache_scan_total = total
         self.__cache_scan_percent = percent
@@ -621,14 +619,16 @@ class ViewerDisplay:
         if self.__image_overlay is not None:  # shouldn't be possible to get here otherwise, but just in case!
             self.__image_overlay.draw()
 
-    def __draw_progress_bar(self, time_left: float, total_time: float, filename: str = None, file_count: int = 0,
-                            countdown: int = None, position: str = "bottom-right", percent: float = None,
-                            draw_bar: bool = True):
-        """Draw progress UI with optional bar and text."""
+    def __draw_progress_bar(self, time_left: float, total_time: float,
+                            countdown: int = None, position: str = "bottom-right"):
+        """Draw the slide-change countdown text (e.g. '3s'). Cache progress is
+        handled separately by __draw_cache_indicator."""
         if self.__disable_progress_overlays:
             return
-        margin = 90  # pixels from edge (keeps clear of ~1in matte border)
-        bar_width = 150
+        if countdown is None:
+            return
+        margin = 90          # pixels from edge
+        bar_width = 150      # retained as a positioning reference for the text offset
         bar_height = self.__progress_bar_height
         x_pos = (self.__display.width // 2) - margin - bar_width
         y_pos = -(self.__display.height // 2) + self.__cache_progress_y_offset + bar_height // 2
@@ -637,108 +637,99 @@ class ViewerDisplay:
             y_pos = (self.__display.height // 2) - margin - bar_height // 2 + self.__slide_progress_y_offset
         else:
             x_pos += self.__cache_progress_x_offset
-        
-        # Calculate progress
-        progress = time_left / total_time
-        if countdown is not None:
-            progress = 1.0 - progress
-        progress = max(0.0, min(1.0, progress))
-        
-        # Convert color from config (RGBA 0-1 range to 0-255)
-        r = int(self.__progress_bar_color[0] * 255)
-        g = int(self.__progress_bar_color[1] * 255)
-        b = int(self.__progress_bar_color[2] * 255)
-        a = int(self.__progress_bar_color[3] * 255 * self.get_brightness())
-        
-        if draw_bar:
-            # Draw bar track as white with alpha
-            bg_array = np.zeros((bar_height, bar_width, 4), dtype=np.uint8)
-            bg_array[:, :, 0:3] = [r, g, b]
-            bg_array[:, :, 3] = max(1, a)
-            bg_tex = pi3d.Texture(bg_array, blend=True, mipmap=False, free_after_load=True)
-            bg_sprite = pi3d.Sprite(w=bar_width, h=bar_height, z=3.5)
-            bg_sprite.set_draw_details(self.__flat_shader, [bg_tex])
-            bg_sprite.position(x_pos, y_pos, 3.5)
-            bg_sprite.set_alpha(1.0)
-            bg_sprite.draw()
+        countdown_text = f"{countdown}s"
+        self.__progress_countdown = pi3d.FixedString(
+            self.__font_file, countdown_text,
+            font_size=self.__slide_progress_font_size,
+            shader=self.__flat_shader,
+            justify="L",
+            width=60,
+            color=(255, 255, 255, int(200 * self.get_brightness()))
+        )
+        self.__progress_countdown.sprite.position(x_pos + bar_width // 2 + 16, y_pos, 3.6)
+        self.__progress_countdown.sprite.draw()
 
-            # Fill consumed portion with black so white remainder indicates time left
-            fill_width = int(bar_width * progress)
-            if countdown is not None and progress > 0.0:
-                fill_width = max(1, fill_width)
-            if fill_width > 0:
-                prog_array = np.zeros((bar_height, fill_width, 4), dtype=np.uint8)
-                prog_array[:, :, 0:3] = [0, 0, 0]
-                prog_array[:, :, 3] = max(a, 220)
-                prog_tex = pi3d.Texture(prog_array, blend=True, mipmap=False, free_after_load=True)
-                prog_sprite = pi3d.Sprite(w=fill_width, h=bar_height, z=3.6)
-                prog_sprite.set_draw_details(self.__flat_shader, [prog_tex])
-                prog_sprite.position(x_pos - (bar_width - fill_width) // 2, y_pos, 3.6)
-                prog_sprite.set_alpha(1.0)
-                prog_sprite.draw()
-        
-        # Draw countdown timer (normal slideshow mode) or cache file text (startup mode)
-        if countdown is not None:
-            countdown_text = f"{countdown}s"
-            self.__progress_countdown = pi3d.FixedString(
-                self.__font_file, countdown_text,
-                font_size=self.__slide_progress_font_size,
-                shader=self.__flat_shader,
-                justify="L",
-                width=60,
-                color=(255, 255, 255, int(200 * self.get_brightness()))
-            )
-            self.__progress_countdown.sprite.position(x_pos + bar_width // 2 + 16, y_pos, 3.6)
-            self.__progress_countdown.sprite.draw()
-        else:
-            # Cache progress text: "filename - XX%"  (no bar)
-            basename = os.path.basename(filename) if filename else ""
-            pct_str = "{:.0f}%".format(percent) if percent is not None else ""
-            if basename and pct_str:
-                cache_text = "{} - {}".format(basename, pct_str)
-            elif basename:
-                cache_text = basename
-            else:
-                cache_text = pct_str or "Building cache..."
-            self.__progress_countdown = pi3d.FixedString(
-                self.__font_file, cache_text,
-                font_size=self.__cache_progress_font_size,
-                shader=self.__flat_shader,
-                justify="L",
-                width=self.__cache_progress_text_width,
-                color=(255, 255, 255, int(180 * self.get_brightness()))
-            )
-            self.__progress_countdown.sprite.position(x_pos, y_pos, 3.6)
-            self.__progress_countdown.sprite.draw()
+    def __draw_cache_indicator(self, current_file: str = None):
+        """Draw cache build progress at bottom-right.
 
-    def __draw_cache_indicator(self, progress: float, file_count: int = 0, current_file: str = None):
-        """Draw startup cache indicator: 'Building cache...' centered + filename - % text."""
+        Renders two right-justified sprites so the % stays at a fixed screen
+        position regardless of filename length:
+
+            [         filename -         ] [ ###% ]
+            |<-- name_box_w px wide ------>|<-52px->|
+                                           ^always here
+        Also draws 'Building cache...' centred on screen until the first real
+        image is displayed.
+        """
         if self.__disable_progress_overlays:
             return
 
-        # "Building cache..." centered on screen — rebuild only once
-        if self.__initial_load_text is None:
-            self.__initial_load_text = pi3d.FixedString(
-                self.__font_file, "Building cache...",
-                font_size=60,
-                shader=self.__flat_shader,
-                justify="C",
-                color=(255, 255, 255, 200)
-            )
-        self.__initial_load_text.sprite.position(0, 0, 0.2)
-        self.__initial_load_text.sprite.set_alpha(0.8)
-        self.__initial_load_text.sprite.draw()
+        # ── "Building cache..." centred (only before first real image) ──────
+        if not self.__first_real_image_shown:
+            if self.__initial_load_text is None:
+                self.__initial_load_text = pi3d.FixedString(
+                    self.__font_file, "Building cache...",
+                    font_size=60,
+                    shader=self.__flat_shader,
+                    justify="C",
+                    color=(255, 255, 255, 200)
+                )
+            self.__initial_load_text.sprite.position(0, 0, 0.2)
+            self.__initial_load_text.sprite.set_alpha(0.8)
+            self.__initial_load_text.sprite.draw()
 
-        # filename - % line (no bar)
-        self.__draw_progress_bar(
-            progress,
-            1.0,
-            filename=current_file,
-            file_count=self.__cache_scan_processed,
-            percent=self.__cache_scan_percent,
-            position=self.__cache_progress_position,
-            draw_bar=False,
+        # ── Right-aligned progress text at bottom-right ──────────────────────
+        # Layout (right edge of screen →):
+        #   [  filename - (right-justified in name_box_w) ][ gap ][###% (right-justified in pct_box_w)]
+        #                                                          ^x_right (fixed)
+        pct_box_w  = 52                              # wide enough for "100%"
+        name_box_w = self.__cache_progress_text_width  # default 500 px
+        gap        = 6                               # px between the two sprites
+        margin_x   = self.__cache_progress_x_offset  # px inward from right screen edge
+        margin_y   = self.__cache_progress_y_offset  # px up from bottom screen edge
+        alpha      = int(200 * self.get_brightness())
+
+        w = self.__display.width
+        h = self.__display.height
+        # pi3d origin is screen centre; right screen edge = w/2, bottom = -h/2
+        x_right = (w // 2) - margin_x
+        y_pos   = -(h // 2) + margin_y
+
+        # ── % sprite – position is FIXED every frame ─────────────────────────
+        pct_val = self.__cache_scan_percent or 0.0
+        pct_str = "{:.0f}%".format(pct_val)
+        pct_sprite = pi3d.FixedString(
+            self.__font_file, pct_str,
+            font_size=self.__cache_progress_font_size,
+            shader=self.__flat_shader,
+            justify="R",
+            width=pct_box_w,
+            color=(255, 255, 255, alpha)
         )
+        # Sprite centre so its right edge lands on x_right
+        x_pct = x_right - pct_box_w // 2
+        pct_sprite.sprite.position(x_pct, y_pos, 3.6)
+        pct_sprite.sprite.draw()
+
+        # ── Filename sprite – right-aligned, ending gap px left of % sprite ──
+        basename = os.path.basename(current_file) if current_file else ""
+        # Truncate from the left so the extension is always visible
+        max_chars = 55
+        if len(basename) > max_chars:
+            basename = "..." + basename[-(max_chars - 3):]
+        name_text = (basename + " -") if basename else "Scanning..."
+        name_sprite = pi3d.FixedString(
+            self.__font_file, name_text,
+            font_size=self.__cache_progress_font_size,
+            shader=self.__flat_shader,
+            justify="R",
+            width=name_box_w,
+            color=(255, 255, 255, alpha)
+        )
+        # Sprite centre so its right edge lands (pct_box_w + gap) px left of x_right
+        x_name = x_right - pct_box_w - gap - name_box_w // 2
+        name_sprite.sprite.position(x_name, y_pos, 3.6)
+        name_sprite.sprite.draw()
 
     @property
     def display_width(self):
@@ -969,22 +960,8 @@ class ViewerDisplay:
         
         # Draw cache progress while cache is building
         if not self.__disable_progress_overlays and self.__show_cache_indicator and self.__cache_loading and self.__cache_start_tm is not None:
-            progress = max(0.0, min(1.0, self.__cache_scan_percent / 100.0))
             try:
-                self.__draw_progress_bar(
-                    progress,
-                    1.0,
-                    filename=self.__cache_current_file,
-                    file_count=self.__cache_scan_processed,
-                    percent=self.__cache_scan_percent,
-                    position=self.__cache_progress_position,
-                )
-                if not self.__first_real_image_shown:
-                    self.__draw_cache_indicator(
-                        progress,
-                        file_count=self.__loaded_file_count,
-                        current_file=self.__cache_current_file,
-                    )
+                self.__draw_cache_indicator(current_file=self.__cache_current_file)
             except Exception as e:
                 self.__disable_progress_overlays = True
                 self.__logger.warning("Disabling progress overlays due to draw error")
@@ -1004,7 +981,6 @@ class ViewerDisplay:
                         countdown_total,
                         countdown=max(1, int(countdown_left + 0.999)),
                         position=self.__slide_progress_position,
-                        draw_bar=False,
                     )
                 except Exception as e:
                     self.__disable_progress_overlays = True

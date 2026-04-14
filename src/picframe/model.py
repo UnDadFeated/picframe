@@ -35,11 +35,11 @@ DEFAULT_CONFIG = {
         'slide_progress_show': True,          # show slide countdown text
         'slide_progress_font_size': 11,        # slide countdown text font size
         'show_cache_indicator': True,          # show cache building indicator on startup
-        'cache_progress_position': 'bottom-right',  # cache countdown text anchor: top-right or bottom-right
-        'cache_progress_x_offset': 58,         # cache countdown text X pixel offset
-        'cache_progress_y_offset': 59,         # cache countdown text Y pixel offset from bottom/top anchor
-        'cache_progress_font_size': 11,        # cache countdown text font size
-        'cache_progress_text_width': 500,      # cache countdown text max width in pixels
+        'cache_progress_position': 'bottom-right',  # cache progress text anchor: top-right or bottom-right
+        'cache_progress_x_offset': 58,         # pixels inward from the right screen edge for the % anchor
+        'cache_progress_y_offset': 59,         # pixels up from the bottom screen edge for the progress text
+        'cache_progress_font_size': 11,        # cache progress text font size
+        'cache_progress_text_width': 500,      # max pixel width of the filename portion
         'slide_progress_position': 'top-right',  # slide-change progress bar anchor
         'slide_progress_x_offset': 0,         # slide progress bar X pixel offset
         'slide_progress_y_offset': 0,         # slide progress bar Y pixel offset

@@ -27,9 +27,9 @@ viewer:
   slide_progress_x_offset: 70              # slide countdown text horizontal offset in pixels
   slide_progress_y_offset: 50              # slide countdown text vertical offset in pixels
   show_cache_indicator: True              # show cache building indicator on startup
-  cache_progress_position: "bottom-right" # cache bar position: top-right or bottom-right
-  cache_progress_x_offset: 60             # cache bar horizontal offset in pixels
-  cache_progress_y_offset: 50             # cache bar vertical offset in pixels
+  cache_progress_position: "bottom-right" # cache progress text position: top-right or bottom-right
+  cache_progress_x_offset: 60             # pixels inward from right screen edge for the % anchor
+  cache_progress_y_offset: 50             # pixels up from bottom screen edge for the progress text
   log_level: "INFO"                      # logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
   log_max_days: 10                        # maximum days to keep log files
   date_range_days: 15                     # show/cache files within +/- days of today (year-agnostic from YYYY-MM-DD_ prefix)
