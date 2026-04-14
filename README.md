@@ -2,15 +2,55 @@
 
 A feature-rich digital picture frame application for Raspberry Pi using pi3d, with video support, smart caching, and a modern web interface.
 
-## Features
+## Fork Changes / What's New
 
-- **Photo & Video Support** - Displays JPEG, PNG, HEIC, and videos (MP4, MKV, MOV, AV1, WebM)
-- **Smart Caching** - Year-agnostic date filtering with `YYYY-MM-DD_` filename prefix (see note below)
-- **Modern Web UI** - Dark-themed control panel at `http://<pi-ip>:9000`
-- **Automatic Refresh** - Midnight timezone-aware cache refresh without restart
-- **EXIF Orientation** - Automatic rotation handling for photos and videos
-- **Display Power Control** - Supports HDMI off/on via vlr-randr, xset, or vcgencmd
-- **MQTT Support** - Remote control integration for Home Assistant
+This fork includes the following improvements over the original [helgeerbe/picframe](https://github.com/helgeerbe/picframe):
+
+### Display & Power Control
+- Support for secondary HDMI output selection
+- Improved display on/off control logic (DRM sysfs checking for mode 3)
+- Display power modes: 0=vcgencmd, 1=xset, 2=wlr-randr
+
+### Video Playback
+- AV1 codec support (libdav1d + libaom-av1)
+- Multiple fixes for video edge cases and badly behaved files
+- Better player/streamer behavior for smoother playback
+- Cache loading flow improvements for seasonal media sets
+
+### Smart Caching
+- Year-agnostic date filtering with `YYYY-MM-DD_` filename prefix
+- Automatic midnight refresh (timezone-aware) without restart
+- Purges out-of-window files and picks up new files at local midnight
+- Configurable date window (±15 days default)
+
+### Metadata & Geo
+- Geo reverse lookup fixes with User-Agent for Nominatim
+- Retry handling to reduce request failures
+- EXIF orientation handling for both photos and videos
+
+### Database & Cache
+- Idempotent schema migration (avoids startup failures)
+- Dedicated bad-file tracking database (`bad_files_db`)
+- Skip logic for known-bad files during cache refresh
+
+### HTTP / Web UI
+- Modern dark-themed web interface at port 9000
+- Toggle controls for pause/display/shuffle
+- Live cache progress bar
+- Current image thumbnail preview
+- Auto-refresh every 5 seconds
+
+### Installation
+- One-click install script for Raspberry Pi OS Bookworm Lite
+- Hardened startup script with duplicate-process guard
+- labwc compositor autostart configuration
+- Reboot-resumable installer with progress logging
+
+### HTTP Server
+- Reusable HTTP server binding (`allow_reuse_address = True`)
+- Reduced port binding issues on restart
+
+---
 
 ## Important: Smart Cache Filename Requirement
 
@@ -24,6 +64,18 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 > - `2024-12-25_christmas.jpg`
 > - `2009-04-15_easter_egg_hunt.mp4`
 > - `2025-01-01_new_year.jpg`
+
+---
+
+## Features
+
+- **Photo & Video Support** - JPEG, PNG, HEIC, and videos (MP4, MKV, MOV, AV1, WebM)
+- **Smart Caching** - Year-agnostic date filtering with automatic midnight refresh
+- **Modern Web UI** - Dark-themed control panel at `http://<pi-ip>:9000`
+- **Automatic Refresh** - Midnight timezone-aware cache refresh without restart
+- **EXIF Orientation** - Automatic rotation handling for photos and videos
+- **Display Power Control** - Supports HDMI off/on via wlr-randr, xset, or vcgencmd
+- **MQTT Support** - Remote control integration for Home Assistant
 
 ---
 
@@ -156,7 +208,7 @@ Features:
 - Check logs: `~/picframe_data/logs/`
 
 **Display stays blank:**
-- Try `display_power: 2` for wlrrandr mode
+- Try `display_power: 2` for wlr-randr mode
 - Check `use_sdl2: True` is set
 
 **Cache not building:**
