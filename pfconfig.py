@@ -36,6 +36,7 @@ SLIDERS = {
     'cache_progress_font_size': (5, 50),
     'clock_opacity': (0.0, 1.0),
     'menu_autohide_tm': (0.0, 60.0),
+    'rclone_sync_interval': (1, 72),
 }
 
 CHOICES = {
@@ -47,7 +48,9 @@ CHOICES = {
     'cache_progress_position': ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'top-center', 'bottom-center'],
     'input_type': ['keyboard', 'touch', 'mouse', None],
     'display_power': [0, 1, 2],
-    'sort_cols': ['fname ASC', 'fname DESC', 'last_modified ASC', 'last_modified DESC', 'exif_datetime ASC', 'exif_datetime DESC', 'rating DESC', 'rating ASC']
+    'sort_cols': ['fname ASC', 'fname DESC', 'last_modified ASC', 'last_modified DESC', 'exif_datetime ASC', 'exif_datetime DESC', 'rating DESC', 'rating ASC'],
+    'true_tone_adjust': ["none", "warm", "cool", "auto"],
+    'sound_profile': ["none", "acoustic", "lofi", "nature", "ambient"]
 }
 
 FRIENDLY_NAMES = {
@@ -164,7 +167,20 @@ FRIENDLY_NAMES = {
     "http.use_ssl": "Enforce SSL Browser Security",
     "http.password": "Web Server Encrypted Password",
     "http.keyfile": "SSL Encryption Keyfile Dir",
-    "http.certfile": "SSL External Cert Validation"
+    "http.certfile": "SSL External Cert Validation",
+
+    "ai.semantic_tagging_enable": "Run Semantic Target Auto-Tagging",
+    "ai.face_aware_kenburns": "Detect Faces for Ken-Burns Panning",
+    "ambient.pir_sensor_pin": "PIR Hardware Motion GPIO Pin",
+    "ambient.true_tone_adjust": "Ambient True-Tone Adjustment",
+    "dashboard.weather_overlay_enable": "Overlay Dynamic System Weather",
+    "dashboard.weather_location": "City, State / Zip Code for Weather",
+    "dashboard.daily_recap_mode": "Daily Nostalgia Anniversary Routine",
+    "cloud.rclone_sync_enable": "Sync Files via Rclone Network",
+    "cloud.rclone_remote_name": "Rclone Cloud Provider API Name",
+    "cloud.rclone_sync_interval": "Cloud Downloader Background Hours",
+    "sound.soundscapes_enable": "Enable Live Background Audio Sets",
+    "sound.sound_profile": "Background DJ Sound Profile"
 }
 
 MENU_STRUCTURE = {
@@ -229,6 +245,17 @@ MENU_STRUCTURE = {
     "HTTP Configuration": [
         "http.use_http", "http.path", "http.port", "http.auth",
         "http.username", "http.use_ssl", "http.password", "http.keyfile", "http.certfile"
+    ],
+    "AI & Ambient Intelligence": [
+        "ai.semantic_tagging_enable", "ai.face_aware_kenburns",
+        "ambient.pir_sensor_pin", "ambient.true_tone_adjust"
+    ],
+    "Cloud Sync & Dashboards": [
+        "dashboard.weather_overlay_enable", "dashboard.weather_location", "dashboard.daily_recap_mode",
+        "cloud.rclone_sync_enable", "cloud.rclone_remote_name", "cloud.rclone_sync_interval"
+    ],
+    "Audio Soundscapes": [
+        "sound.soundscapes_enable", "sound.sound_profile"
     ]
 }
 
