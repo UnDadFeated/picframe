@@ -6,6 +6,14 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 
 This fork includes the following improvements over the original [helgeerbe/picframe](https://github.com/helgeerbe/picframe):
 
+### Terminal Configuration TUI (`pfconfig`)
+- **Full Localization**: Translates over 80+ technical YAML properties into Plain English labels for easy navigation.
+- **Dynamic UX**: Features a color-coded interface (Cyans/Blues/Greens) with a real-time status bar showing underlying YAML keys and boundary logic.
+- **Choice Selectors**: Uses `< Left/Right >` arrow keys to cycle through valid string options (like alignment or transition types) instead of manual typing.
+- **Safety Features**: Includes a one-key `[R] Revert` hotkey to undo local changes per-item and a robust regex-parser that preserves all your original YAML comments and `# README` annotations.
+- **Scroll Indicators**: Visual cues for large menus ensuring no options are hidden off-screen.
+- **Run locally using**: `./pfconfig.sh`
+
 ### Display & Power Control
 - Support for secondary HDMI output selection
 - Improved display on/off control logic (DRM sysfs checking for mode 3)
@@ -50,14 +58,6 @@ This fork includes the following improvements over the original [helgeerbe/picfr
 ### HTTP Server
 - Reusable HTTP server binding (`allow_reuse_address = True`)
 - Reduced port binding issues on restart
-
-### Terminal Configuration TUI (`pfconfig`)
-- **Full Localization**: Translates over 80+ technical YAML properties into Plain English labels for easy navigation.
-- **Dynamic UX**: Features a color-coded interface (Cyans/Blues/Greens) with a real-time status bar showing underlying YAML keys and boundary logic.
-- **Choice Selectors**: Uses `< Left/Right >` arrow keys to cycle through valid string options (like alignment or transition types) instead of manual typing.
-- **Safety Features**: Includes a one-key `[R] Revert` hotkey to undo local changes per-item and a robust regex-parser that preserves all your original YAML comments and `# README` annotations.
-- **Scroll Indicators**: Visual cues for large menus ensuring no options are hidden off-screen.
-- **Run locally using**: `./pfconfig.sh`
 
 ---
 
