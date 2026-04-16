@@ -472,7 +472,7 @@ class App:
 
     def save_changes(self):
         flat_items = flatten_keys(self.data, [])
-        orig_items = dict(flatten_keys(self.original_data, []))
+        orig_items = {tuple(k): v for k, v in flatten_keys(self.original_data, [])}
         
         for keys_path, v in flat_items:
             orig_v = orig_items.get(tuple(keys_path))
