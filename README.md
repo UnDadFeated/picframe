@@ -7,11 +7,12 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 This fork includes the following improvements over the original [helgeerbe/picframe](https://github.com/helgeerbe/picframe):
 
 ### Terminal Configuration TUI (`pfconfig`)
-- **Full Localization**: Translates over 80+ technical YAML properties into Plain English labels for easy navigation.
-- **Dynamic UX**: Features a color-coded interface (Cyans/Blues/Greens) with a real-time status bar showing underlying YAML keys and boundary logic.
-- **Choice Selectors**: Uses `< Left/Right >` arrow keys to cycle through valid string options (like alignment or transition types) instead of manual typing.
-- **Safety Features**: Includes a one-key `[R] Revert` hotkey to undo local changes per-item and a robust regex-parser that preserves all your original YAML comments and `# README` annotations.
-- **Scroll Indicators**: Visual cues for large menus ensuring no options are hidden off-screen.
+- **Alphabetized Navigation**: Main categories and each submenu are organized alphabetically for faster scanning.
+- **Intuitive Grouping**: Settings are grouped by workflow (`Display & Rendering`, `UI Overlays`, `Slideshow Timing`, `Caching & Date Filtering`, etc.).
+- **Supported Settings Only**: Removed unsupported AI/cloud/sound entries from TUI menus and aligned visible options to active runtime config keys.
+- **Updated Controls**: Added newer keys such as `viewer.video_every_n_photos`, text absolute positioning (`text_position_mode`, `text_x_position`, `text_y_position`), and `viewer.display_hdmi`.
+- **Choice Selectors**: Uses `< Left/Right >` arrow keys for enum-style options instead of manual typing.
+- **Safety Features**: Includes `[R] Revert` per option and preserves inline YAML comments when saving.
 - **Run locally using**: `./pfconfig.sh`
 
 ### Display & Power Control
@@ -161,6 +162,7 @@ viewer:
   use_sdl2: True                            # use SDL2 (recommended for Pi)
   
   # Video
+  video_every_n_photos: 10                # if videos exist, force at least 1 video every N photos
   video_volume: 0                          # 0 = muted, 100 = full volume
   video_fit_display: True                  # True = stretch to fit
   

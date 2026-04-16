@@ -273,6 +273,20 @@ class ImageCache:
         except Exception:
             return []
 
+    def is_video_file(self, file_id):
+        if not file_id:
+            return False
+        row = self.__db.execute("SELECT extension FROM file WHERE file_id = ?", (file_id,)).fetchone()
+        if row is None:
+            return False
+        extension = row['extension'].lower().lstrip('.')
+        return f".{extension}" in VIDEO_EXTENSIONS
+
+    def has_videos(self, where_clause='1'):
+        ext_list = ",".join(f"'{ext.lstrip('.')}'" for ext in VIDEO_EXTENSIONS)
+        sql = f"SELECT 1 FROM all_data WHERE {where_clause} AND LOWER(extension) IN ({ext_list}) LIMIT 1"
+        return self.__db.execute(sql).fetchone() is not None
+
     def get_file_info(self, file_id):
         if not file_id:
             return None

@@ -51,6 +51,7 @@ DEFAULT_CONFIG = {
         'enable_smart_cache': True,            # only retain/cache media in configured date window
         'cache_refresh_timezone': 'America/Los_Angeles',  # timezone for midnight refresh
         'cache_start_min_files': 0,            # keep waiting screen until this many files are cached (0 = wait until cache build completes)
+        'video_every_n_photos': 10,             # when videos exist, enforce at least one video every N photos
         'fit': False,
         'video_fit_display': True,
         'kenburns': False,
@@ -231,6 +232,11 @@ class Model:
         self.__current_pics = (None, None)  # this hold a tuple of (pic, None) or two pic objects if portrait pairs
         self.__num_run_through = 0
         self.__date_filter_applied = False  # Track if date filter was applied on current reload
+        self.__video_every_n_photos = max(1, int(self.__config['viewer'].get('video_every_n_photos', 10)))
+        self.__photos_since_last_video = 0
+        self.__selection_where_clause = "1"
+        self.__selection_has_videos = False
+
 
         model_config = self.get_model_config()  # alias for brevity as used several times below
         try:
@@ -456,7 +462,24 @@ class Model:
     def set_next_file_to_previous_file(self):
         self.__file_index = (self.__file_index - 2) % self.__number_of_files  # TODO deleting last image results in ZeroDivisionError # noqa: E501
 
+    def __is_video_file_id(self, file_ids):
+        if not file_ids:
+            return False
+        return self.__image_cache.is_video_file(file_ids[0]) if self.__image_cache is not None else False
+
+    def __select_due_video_index(self):
+        if self.__image_cache is None or self.__number_of_files == 0:
+            return None
+        max_search = min(self.__number_of_files, 200)
+        for offset in range(max_search):
+            idx = (self.__file_index + offset) % self.__number_of_files
+            file_ids = self.__file_list[idx]
+            if self.__is_video_file_id(file_ids):
+                return idx
+        return None
+
     def get_next_file(self):
+
         min_files = self.__config['viewer'].get('cache_start_min_files', 0)
         if self.__image_cache is not None and self.__number_of_files == 0:
             cache_status = self.__image_cache.get_status()
@@ -499,13 +522,21 @@ class Model:
                 self.__file_index = 0
                 continue
 
+            selected_idx = self.__file_index
+            if (self.__selection_has_videos and
+                    self.__photos_since_last_video >= self.__video_every_n_photos):
+                due_video_idx = self.__select_due_video_index()
+                if due_video_idx is not None:
+                    selected_idx = due_video_idx
+
             # Load the current image set
-            file_ids = self.__file_list[self.__file_index]
+            file_ids = self.__file_list[selected_idx]
             pic_row = self.__image_cache.get_file_info(file_ids[0])
             pic1 = Pic(**pic_row) if pic_row is not None else None
             if len(file_ids) == 2:
                 pic_row = self.__image_cache.get_file_info(file_ids[1])
                 pic2 = Pic(**pic_row) if pic_row is not None else None
+
 
             # Verify the images in the selected image set actually exist on disk
             # Blank out missing references and swap positions if necessary to try and get
@@ -518,11 +549,16 @@ class Model:
                 pic1, pic2 = pic2, pic1
 
             # Increment the image index for next time
-            self.__file_index += 1
+            self.__file_index = selected_idx + 1
 
             # If pic1 is valid here, everything is OK. Break out of the loop and return the set
             if pic1:
+                if self.__is_video_file_id(file_ids):
+                    self.__photos_since_last_video = 0
+                else:
+                    self.__photos_since_last_video += 1
                 break
+
 
             # Here, pic1 is undefined. That's a problem. Loop back and get another image set.
             # Track the number of times we've looped back so we can abort if we don't have *any* images to display
@@ -593,6 +629,8 @@ class Model:
             where_clause = " AND ".join(where_list)  # TODO now always true - remove unreachable code
         else:
             where_clause = "1"
+        self.__selection_where_clause = where_clause
+
 
         sort_list = []
         recent_n = self.get_model_config()["recent_n"]
@@ -615,7 +653,10 @@ class Model:
         self.__number_of_files = len(self.__file_list)
         self.__file_index = 0
         self.__num_run_through = 0
+        self.__selection_has_videos = self.__image_cache.has_videos(where_clause)
+        self.__photos_since_last_video = 0
         self.__logger.info("Loaded %d files from cache", self.__number_of_files)
+
         self.__reload_files = self.__number_of_files == 0
 
     def check_date_filter(self):
