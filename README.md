@@ -106,9 +106,61 @@ cp src/picframe/config/configuration_example.yaml ~/picframe_data/config/configu
 nano ~/picframe_data/config/configuration.yaml
 ```
 
+### Google Photos via rclone (with `pfconfig`)
+
+Use this flow to mount Google Photos and point Picframe at it using the TUI menu.
+
+1. Install and configure rclone on the Pi:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y rclone
+rclone config
+```
+
+In `rclone config`, create a remote (example name: `gphotos`) using the Google Photos backend and complete browser auth.
+
+2. Create a local mount point and test access:
+
+```bash
+sudo mkdir -p /mnt/gphotos
+sudo chown pi:pi /mnt/gphotos
+rclone ls "gphotos:media/by-day" | head
+```
+
+3. Mount Google Photos (foreground test):
+
+```bash
+rclone mount "gphotos:media/by-day" /mnt/gphotos --vfs-cache-mode full --dir-cache-time 72h --poll-interval 15m
+```
+
+4. Open `pfconfig` and set paths from the menu:
+
+```bash
+cd /home/pi/picframe
+./pfconfig.sh
+```
+
+In `pfconfig`:
+- Go to `Directories & Filters`
+- Set `Media Root Folder` (`model.pic_dir`) to `/mnt/gphotos`
+- Optionally set `Subdirectory Filter` (`model.subdirectory`) if you want a subset
+- Save with `S`
+
+5. Start Picframe:
+
+```bash
+/home/pi/start_picframe.sh
+```
+
+Notes:
+- Keep smart-cache naming in mind (`YYYY-MM-DD_...`) if `enable_smart_cache` is enabled.
+- For always-on mounts after reboot, create an rclone systemd mount service for `/mnt/gphotos`.
+
 ---
 
 ## Configuration
+
 
 Edit `~/picframe_data/config/configuration.yaml`:
 
