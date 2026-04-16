@@ -1,100 +1,96 @@
 viewer:
-  blur_amount: 12                           # blur radius for background (larger = more CPU load)
-  blur_zoom: 1.0                            # background zoom factor (must be >= 1.0)
-  blur_edges: False                          # use blurred image to fill edges (overrides fit=False)
-  edge_alpha: 0.5                            # alpha at image edge (1.0 = reflection)
-  fps: 20.0                                  # frames per second
-  background: [0.2, 0.2, 0.3, 1.0]          # RGBA background color
-  blend_type: "blend"                        # blend shader type: blend, burn, or bump
+  blur_amount: 12                         # default=12, larger values increase processing load
+  blur_zoom: 1.0                          # default=1.0, must be >= 1.0, expands background to fill space
+  blur_edges: False                       # default=False, use blurred version of image to fill edges (overrides fit=False)
+  edge_alpha: 0.5                         # default=0.5, background color at edge. 1.0 would show reflection of image
+  fps: 20.0                               # default=20.0
+  background: [0.2, 0.2, 0.3, 1.0]        # default=[0.2, 0.2, 0.3, 1.0], RGBA to fill edges when fitting
+  blend_type: "blend"                     # default="blend", choices={"blend", "burn", "bump"}, shader blend type
   font_file: "~/picframe_data/data/fonts/NotoSans-Regular.ttf"
   shader: "~/picframe_data/data/shaders/blend_new"
-  show_text_fm: "%b %d, %Y"                  # date format for overlay text
-  show_text_tm: 180.0                        # seconds to show filename overlay
-  show_text_sz: 13                           # font size for photo info overlay
-  show_text: "name"                          # what to show: name, date, folder, location, etc.
-  text_justify: "L"                          # text justification: L, C, or R
-  text_x_margin: 150                         # left margin for overlay text
-  text_y_margin: 20                          # top/bottom margin for overlay text
-  text_x_position: null                      # absolute X position (overrides margin when set)
-  text_y_position: null                      # absolute Y position (overrides margin when set)
-  text_position_mode: "margin"               # use "margin" or "absolute" positions
-  text_width: null                           # max pixel width for text wrapping
-  text_line_spacing: 1.2                     # line spacing multiplier for multi-line text
-  video_volume: 0                            # video volume 0-100 (set 0 to mute)
-  slide_progress_show: True                  # show slide countdown text
-  slide_progress_font_size: 11               # slide countdown font size
-  slide_progress_position: "top-right"       # countdown position: top-right or bottom-right
-  slide_progress_x_offset: 70                # countdown horizontal offset (pixels from edge)
-  slide_progress_y_offset: 50                # countdown vertical offset (pixels from edge)
-  show_cache_indicator: True                  # show cache-building progress on startup
-  cache_progress_position: "bottom-right"    # cache text position: top-right or bottom-right
-  cache_progress_x_offset: 80                # cache text horizontal offset (pixels from right edge)
-  cache_progress_y_offset: 35                # cache text vertical offset (pixels from bottom edge)
-  cache_progress_font_size: 11              # cache text font size
-  cache_progress_text_width: 500             # max pixel width for cache filename portion
-  log_level: "INFO"                          # logging: DEBUG, INFO, WARNING, ERROR, CRITICAL
-  log_max_days: 10                            # days to keep log files
-  date_range_days: 15                         # smart cache window: +/- days from today (year-agnostic)
-  enable_date_filter: True                    # enable date-based filtering (shows files in date window)
-  enable_smart_cache: True                   # only cache files with YYYY-MM-DD_ prefix in date window
-  cache_refresh_timezone: "America/Los_Angeles"  # timezone for midnight date-window refresh
-  cache_start_min_files: 0                    # min files before starting (0 = wait for full cache)
-  text_bkg_hgt: 0.0                          # text background height (0.0 to 1.0 = screen fraction)
-  text_opacity: 0.5                          # text overlay opacity (0.0 to 1.0)
-  fit: False                                  # True = scale to fit (gaps), False = crop to fill
-  video_fit_display: True                    # True = stretch to display, False = maintain aspect
-  kenburns: False                            # enable kenburns zoom effect (sets fit=False, blur_edges=False)
-  display_x: 0                               # X offset from screen left (can be negative)
-  display_y: 0                               # Y offset from screen top (can be negative)
-  display_w: null                            # display width (null = use hardware max)
-  display_h: null                            # display height (null = use hardware max)
-  display_power: 2                           # display off method: 0=vcgencmd, 1=xset, 2=wlr-randr
-  use_glx: False                             # True for Linux with X server (may need use_sdl2=False)
-  use_sdl2: True                             # True uses SDL2 without X server (recommended)
+  show_text_fm: "%b %d, %Y"               # format to show date over the image
+  show_text_tm: 20.0                      # default=20.0, time in seconds to show filename/info overlay
+  show_text_sz: 13                        # text character size for photo info overlay
+  show_text: "name"                       # show text, combine: title, caption, name, date, location, folder, camera, lens, iso, aperture, exposure, white_balance, flash, metering, software, artist, copyright
+  text_justify: "L"                       # text justification L, C or R
+  text_x_margin: 150                      # pixels from left (use to clear matte border)
+  text_y_margin: 20                       # pixels from top/bottom
+  text_x_position: null                   # absolute X position in pixels (overrides margin)
+  text_y_position: null                   # absolute Y position in pixels (overrides margin)
+  text_position_mode: "margin"            # default="margin", options: "margin" or "absolute"
+  text_width: null                        # max width for text wrapping in pixels (null = no limit)
+  text_line_spacing: 1.2                  # line spacing multiplier for multi-line text
+  video_volume: 0                         # video volume 0-100 (0 to mute)
+  slide_progress_show: True               # show slide countdown text
+  slide_progress_font_size: 11            # slide countdown text size
+  slide_progress_position: "top-right"    # countdown position: top-right or bottom-right
+  slide_progress_x_offset: 70             # slide countdown text horizontal offset
+  slide_progress_y_offset: 50             # slide countdown text vertical offset
+  show_cache_indicator: True              # show cache building indicator on startup
+  cache_progress_position: "bottom-right"  # position: top-right or bottom-right
+  cache_progress_x_offset: 60             # pixels inward from right screen edge
+  cache_progress_y_offset: 50             # pixels up from bottom screen edge (was 35 in some versions)
+  cache_progress_font_size: 11            # cache progress text font size
+  cache_progress_text_width: 500          # cache progress filename text max width
+  log_level: "INFO"                       # logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_max_days: 10                        # maximum days to keep log files
+  date_range_days: 15                     # show/cache files within +/- N days of today (year-agnostic)
+  enable_date_filter: True                # enable date-based filtering
+  enable_smart_cache: True                # only cache files with YYYY-MM-DD_ prefix in date window
+  cache_refresh_timezone: "America/Los_Angeles" # timezone for midnight window refresh
+  cache_start_min_files: 0                # 0 = wait for full cache build, >0 starts at threshold
+  text_bkg_hgt: 0.0                       # default=0.25 (0.0-1.0), percentage of screen height for text background texture
+  text_opacity: 0.5                       # default=1.0 (0.0-1.0), alpha value of text overlay
+  fit: False                              # default=False, True => scale to fit (gaps), False => crop to fill
+  video_fit_display: False                # default=False, True => scale video to display size (may distort)
+  kenburns: False                         # default=False, sets fit->False and blur_edges->False
+  display_x: 0                            # offset from left of screen
+  display_y: 0                            # offset from top of screen
+  display_w: null                         # width of display surface (null = use max)
+  display_h: null                         # height of display surface
+  display_power: 2                        # 0=vcgencmd, 1=xset, 2=wlr-randr (Wayland)
+  use_glx: False                          # default=False. Set True for Linux with X server
+  use_sdl2: True                          # default=True. Recommended for Wayland/Pi
 
-  # Matting (photo frame border)
-  mat_images: 0.01                           # auto-mat threshold: False=off, True=all, 0.01+=aspect diff
-  mat_type: null                             # mat styles: float, float_polaroid, single_bevel, double_bevel, etc.
-  outer_mat_color: null                       # RGB list for outer mat color
-  inner_mat_color: null                       # RGB list for inner mat color
-  outer_mat_border: 75                        # outer mat border size (pixels)
-  inner_mat_border: 40                        # inner mat border size (pixels)
-  outer_mat_use_texture: True                # use texture for outer mat (False = solid color)
-  inner_mat_use_texture: False               # use texture for inner mat
-  mat_resource_folder: "~/picframe_data/data/mat"  # folder containing mat image files
+  mat_images: 0.01                        # default=0.01, auto-mat images with aspect ratio diff > value
+  mat_type: null                          # mat styles: float, float_polaroid, single_bevel, double_bevel, etc.
+  outer_mat_color: null                   # RGBA list for outer mat color (null = auto)
+  inner_mat_color: null                   # RGBA list for inner mat color (null = auto)
+  outer_mat_border: 75                    # minimum outer mat border in pixels
+  inner_mat_border: 40                    # minimum inner mat border in pixels
+  outer_mat_use_texture: True             # use texture for outer mat
+  inner_mat_use_texture: False            # use texture for inner mat
+  mat_resource_folder: "~/picframe_data/data/mat" # folder containing mat image files
 
-  # Clock overlay
-  show_clock: False                          # show clock overlay
-  clock_justify: "R"                         # clock justification: L, C, or R
-  clock_text_sz: 120                         # clock font size
-  clock_format: "%-I:%M"                    # clock strftime format
-  clock_opacity: 1.0                        # clock opacity (0.0 to 1.0)
-  clock_top_bottom: "T"                      # T = top, B = bottom
-  clock_wdt_offset_pct: 3.0                 # horizontal margin (% of screen width)
-  clock_hgt_offset_pct: 3.0                  # vertical margin (% of screen height)
-                                              # text in /dev/shm/clock.txt displays below time
+  show_clock: False                       # show clock overlay
+  clock_justify: "R"                      # clock justification L, C, or R
+  clock_text_sz: 120                      # clock font size
+  clock_format: "%-I:%M"                  # strftime format for clock
+  clock_opacity: 1.0                      # clock opacity (0.0 to 1.0)
+  clock_top_bottom: "T"                   # T for top, B for bottom
+  clock_wdt_offset_pct: 3.0               # horizontal margin %
+  clock_hgt_offset_pct: 3.0               # vertical margin %
 
-  # Menu / Controls
-  menu_text_sz: 40                          # menu font size
-  menu_autohide_tm: 10.0                     # auto-hide menu after seconds (0 = never)
-  geo_suppress_list: []                       # substrings to remove from location text
+  menu_text_sz: 40                        # menu character size
+  menu_autohide_tm: 10.0                  # auto-hide menu after seconds (0 = never)
+  geo_suppress_list: []                   # substrings to remove from location text
 
 model:
-  pic_dir: "~/Pictures"                      # root folder for photos/videos (supports NAS mount)
-  deleted_pictures: "~/DeletedPictures"     # folder for deleted files
-  follow_links: False                       # follow symbolic links to directories
-  no_files_img: "~/picframe_data/data/no_pictures.jpg"  # image when no files found
-  subdirectory: ""                           # subfolder of pic_dir to display
-  recent_n: 7                                # shuffle priority: prefer files from last N days
-  reshuffle_num: 1                           # times through before reshuffling
-  time_delay: 200.0                          # seconds between slide changes
-  fade_time: 10.0                            # seconds for crossfade transition
-  update_interval: 2.0                       # seconds between folder scans for new files
-  shuffle: True                             # shuffle image order
-  sort_cols: 'fname ASC'                    # sort columns (fname, exif_datetime, last_modified, etc.)
-  image_attr: [                             # EXIF fields to send via MQTT
-    "PICFRAME GPS",                         # special: GPS coordinates
-    "PICFRAME LOCATION",                    # special: reverse geocode location
+  pic_dir: "~/Pictures"                   # root folder for images
+  deleted_pictures: "~/DeletedPictures"   # move deleted pictures here
+  no_files_img: "~/picframe_data/data/no_pictures.jpg" # image to show if none selected
+  follow_links: False                     # follow symbolic links to directories
+  subdirectory: ""                        # subdir of pic_dir to display
+  recent_n: 7                             # prefer files modified in last N days
+  reshuffle_num: 1                        # play count before reshuffling
+  time_delay: 200.0                       # seconds between slides
+  fade_time: 10.0                         # crossfade duration
+  update_interval: 2.0                    # seconds between scans for new files
+  shuffle: True                           # shuffle on reload
+  sort_cols: 'fname ASC'                  # default sort order (fname, exif_datetime, etc.)
+  image_attr: [                           # EXIF/metadata fields for MQTT/info
+    "PICFRAME GPS",
+    "PICFRAME LOCATION",
     "EXIF FNumber",
     "EXIF ExposureTime",
     "EXIF ISOSpeedRatings",
@@ -105,46 +101,46 @@ model:
     "IPTC Caption/Abstract",
     "IPTC Object Name",
     "IPTC Keywords"]
-  load_geoloc: False                        # fetch location from OpenStreetMap (requires geo_key)
-  geo_key: "your_email@example.com"         # unique key for geolocation service (your email)
-  locale: "en_GB.UTF-8"                     # system locale for date/time formatting
-  key_list: [                               # location hierarchy for reverse geocoding
+  load_geoloc: False                      # fetch location from OpenStreetMap (requires geo_key)
+  geo_key: "your_email@example.com"       # unique key for geocoder (use your email)
+  locale: "en_GB.UTF-8"                    # system locale for date/time
+  key_list: [
     ["tourism","amenity","isolated_dwelling"],
     ["suburb","village"],
     ["city","county"],
     ["region","state","province"],
     ["country"]]
-  db_file: "~/picframe_data/data/pictureframe.db3"  # SQLite database for cached file info
-  bad_files_db: "~/picframe_data/data/bad_files.db3"  # database for corrupt/unreadable files
-  portrait_pairs: False                     # pair portrait images side-by-side
-  location_filter: ""                       # SQL WHERE clause for location filtering
-  tags_filter: ""                           # SQL WHERE clause for tags filtering
-  log_level: "WARNING"                      # logging level for model
-  log_file: ""                              # path to log file (empty = console only)
+  db_file: "~/picframe_data/data/pictureframe.db3" # SQLite database file
+  bad_files_db: "~/picframe_data/data/bad_files.db3" # database for unreadable files
+  portrait_pairs: False                   # show portrait images side-by-side
+  location_filter: ""                     # SQL filter for location
+  tags_filter: ""                         # SQL filter for tags
+  log_level: "WARNING"                    # log level for model
+  log_file: ""                            # path to file for continuous logging
 
 mqtt:
-  use_mqtt: False                           # enable MQTT remote control
-  server: "your_mqtt_broker"               # MQTT broker hostname
-  port: 8883                               # MQTT port (8883=TLS, 1883=plain)
-  login: ""                                # MQTT username
-  password: ""                             # MQTT password
-  tls: ""                                  # path to CA certificate (empty = no TLS)
-  device_id: "picframe"                    # unique device ID (change for multiple frames)
-  device_url: ""                           # Home Assistant URL for state updates
+  use_mqtt: False                         # enable MQTT control
+  server: "your_mqtt_broker"              # hostname of broker
+  port: 8883                              # 8883 for TLS, 1883 otherwise
+  login: ""                               # mqtt username
+  password: ""                            # mqtt password
+  tls: ""                                 # path to ca.crt (empty = no TLS)
+  device_id: "picframe"                   # unique device ID
+  device_url: ""                          # URL for Home Assistant state link
 
 http:
-  use_http: True                            # enable HTTP web interface
-  path: "~/picframe_data/html"             # path to HTML files
-  port: 9000                               # HTTP server port (don't use < 1024)
-  auth: false                              # enable basic authentication
-  username: admin                          # HTTP auth username
-  password: null                           # HTTP auth password (null = random, stored in basic_auth.txt)
-  use_ssl: False                           # enable HTTPS
-  keyfile: "path/to/key.pem"               # SSL private key file
-  certfile: "path/to/cert.pem"             # SSL certificate file
+  use_http: True                          # enable web interface
+  path: "~/picframe_data/html"            # folder for HTML files
+  port: 9000                              # HTTP port (must be > 1024)
+  auth: false                             # enable basic auth
+  username: admin                         # auth username
+  password: null                          # auth password (null = random)
+  use_ssl: False                          # enable HTTPS
+  keyfile: "path/to/key.pem"              # private-key
+  certfile: "path/to/cert.pem"            # certificate
 
 peripherals:
-  input_type: null                          # input device: null, keyboard, touch, or mouse
+  input_type: null                        # input device: {null, "keyboard", "touch", "mouse"}
   buttons:
     pause:
       enable: True
@@ -166,6 +162,7 @@ peripherals:
       enable: False
       label: "Power down"
       shortcut: "p"
+
 ai:
   semantic_tagging_enable: False
   face_aware_kenburns: False
