@@ -17,11 +17,12 @@ This fork includes the following improvements over the original [helgeerbe/picfr
 - Better player/streamer behavior for smoother playback
 - Cache loading flow improvements for seasonal media sets
 
-### Smart Caching
+### Smart Caching & Playback
 - Year-agnostic date filtering with `YYYY-MM-DD_` filename prefix
 - Automatic midnight refresh (timezone-aware) without restart
 - Purges out-of-window files and picks up new files at local midnight
 - Configurable date window (±15 days default)
+- **Anniversary Playback Cooldown**: Prevents photos from repeating endlessly within a calendar year. Once a photo plays, it faces an ~11-month cooldown so it only returns next year during its specific anniversary window.
 
 ### Metadata & Geo
 - Geo reverse lookup fixes with User-Agent for Nominatim
@@ -49,6 +50,13 @@ This fork includes the following improvements over the original [helgeerbe/picfr
 ### HTTP Server
 - Reusable HTTP server binding (`allow_reuse_address = True`)
 - Reduced port binding issues on restart
+
+### Terminal Configuration TUI (`pfconfig`)
+- Added a full-featured `curses` Text-based UI for modifying `configuration.yaml` without fighting text editors.
+- Safely writes directly to your configs without destroying inline comments or `# README` annotations.
+- Logically groups variables into curated submenus (Display & Visuals, Dates & Caching, Timings & Shuffle) instead of chaotic 100-variable flat lists.
+- Dynamically finds custom unmapped options for extensibility.
+- Run locally using: `./pfconfig.sh`
 
 ---
 
