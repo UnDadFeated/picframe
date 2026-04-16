@@ -537,31 +537,36 @@ class ImageCache:
                 # Add indexes for better performance on large databases
                 self.__db.execute("CREATE INDEX IF NOT EXISTS file_last_modified ON file (last_modified)")
 
-            self.__db.execute("DROP VIEW IF EXISTS all_data")
-            self.__db.execute("""
-                CREATE VIEW IF NOT EXISTS all_data
-                AS
-                SELECT
-                    folder.name || "/" || file.basename || "." || file.extension AS fname,
-                    file.last_modified,
-                    meta.*,
-                    meta.height > meta.width as is_portrait,
-                    location.description as location
-                FROM file
-                    INNER JOIN folder
-                        ON folder.folder_id = file.folder_id
-                    LEFT JOIN meta
-                        ON file.file_id = meta.file_id
-                    LEFT JOIN location
-                        ON location.latitude = meta.latitude AND location.longitude = meta.longitude
-                WHERE IFNULL(folder.missing, 0) = 0
-                """)
             self.__db.execute("CREATE INDEX IF NOT EXISTS folder_missing ON folder (missing)")
 
             # Finally, update the db's schema version stamp to the app's requested version
             self.__db.execute('DELETE FROM db_info')
             self.__db.execute('INSERT INTO db_info VALUES(?)', (required_db_schema_version,))
             self.__db.commit()
+
+        # ALWAYS recreate the view to ensure it matches the current code requirements
+        # (Must be done after all potential schema updates to ensure columns exist)
+        self.__db.execute("DROP VIEW IF EXISTS all_data")
+        self.__db.execute("""
+            CREATE VIEW IF NOT EXISTS all_data
+            AS
+            SELECT
+                folder.name || "/" || file.basename || "." || file.extension AS fname,
+                file.last_modified,
+                file.last_displayed,
+                meta.*,
+                meta.height > meta.width as is_portrait,
+                location.description as location
+            FROM file
+                INNER JOIN folder
+                    ON folder.folder_id = file.folder_id
+                LEFT JOIN meta
+                    ON file.file_id = meta.file_id
+                LEFT JOIN location
+                    ON location.latitude = meta.latitude AND location.longitude = meta.longitude
+            WHERE IFNULL(folder.missing, 0) = 0
+            """)
+
 
     # --- Returns a set of folders matching any of
     #     - Found on disk, but not currently in the 'folder' table

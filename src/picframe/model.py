@@ -559,15 +559,27 @@ class Model:
         where_list = ["fname LIKE '{}/%'".format(picture_dir)]  # TODO / on end to stop 'test' also selecting test1 test2 etc  # noqa: E501
         where_list.extend(self.__where_clauses.values())
 
-        # Apply date range filter if enabled (show photos within +/- date_range_days of current date)
+        # Apply date range filter if enabled (show photos within +/- date_range_days of current date, year-agnostic)
         if self.__config['viewer'].get('enable_date_filter', False):
             date_range = self.__config['viewer'].get('date_range_days', 15)
-            now = time.time()
-            date_from = now - (date_range * 24 * 3600)
-            date_to = now + (date_range * 24 * 3600)
-            where_list.append("exif_datetime >= {:.0f}".format(date_from))
-            where_list.append("exif_datetime <= {:.0f}".format(date_to))
-            self.__logger.debug("Date filter applied: +/- %d days from %s", date_range, time.strftime("%Y-%m-%d", time.localtime(now)))
+            
+            import datetime
+            today = datetime.date.today()
+            candidates = []
+            for i in range(-date_range, date_range + 1):
+                d = today + datetime.timedelta(days=i)
+                candidates.append(d.strftime('%m-%d'))
+            
+            in_clause = ",".join(f"'{c}'" for c in candidates)
+            where_list.append(f"strftime('%m-%d', exif_datetime, 'unixepoch', 'localtime') IN ({in_clause})")
+            
+            # Do not play twice in the same year: dynamically calculate cooldown
+            # The cooldown spans roughly a year minus the window duration, preventing replays in the same period.
+            cooldown_days = max(1, 365 - (date_range * 2) - 30)
+            cooldown_seconds = cooldown_days * 24 * 3600
+            where_list.append(f"IFNULL(last_displayed, 0) < {(time.time() - cooldown_seconds):.0f}")
+            
+            self.__logger.debug("Date filter applied: +/- %d days (Anniversary)", date_range)
 
         if len(where_list) > 0:
             where_clause = " AND ".join(where_list)  # TODO now always true - remove unreachable code
