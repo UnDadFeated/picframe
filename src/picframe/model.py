@@ -154,9 +154,10 @@ class Pic:
                  longitude=None, width=0, height=0, is_portrait=0, location=None, title=None,
                  caption=None, tags=None, white_balance=None, flash=None, metering_mode=None,
                  exposure_mode=None, software=None, artist=None, copyright=None,
-                 lens_make=None, lens_model=None):
+                 lens_make=None, lens_model=None, last_displayed=0):
         self.fname = fname
         self.last_modified = last_modified
+        self.last_displayed = last_displayed
         self.file_id = file_id
         self.orientation = orientation
         self.exif_datetime = exif_datetime

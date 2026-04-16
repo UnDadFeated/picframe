@@ -166,3 +166,20 @@ peripherals:
       enable: False
       label: "Power down"
       shortcut: "p"
+ai:
+  semantic_tagging_enable: False
+  face_aware_kenburns: False
+ambient:
+  pir_sensor_pin: 0
+  true_tone_adjust: "none"
+dashboard:
+  weather_overlay_enable: False
+  weather_location: ""
+  daily_recap_mode: False
+cloud:
+  rclone_sync_enable: False
+  rclone_remote_name: "google_drive:"
+  rclone_sync_interval: 24
+sound:
+  soundscapes_enable: False
+  sound_profile: "none"

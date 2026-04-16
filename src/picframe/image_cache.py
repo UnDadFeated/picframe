@@ -155,32 +155,25 @@ class ImageCache:
 
         self.__logger.debug('Updating cache')
 
-        # Rebuild folder queue only when scan fully completed and queue drained
+        # Rebuild file list only when scan fully completed and queue drained
         if self.__folder_walk_done and not self.__folder_scan_queue and not self.__modified_files:
             self.__modified_folders = self.__get_modified_folders()
-            self.__folder_scan_queue = sorted(list(self.__modified_folders), key=lambda x: self.__folder_priority(x[0]))
-            self.__folder_walk_done = False if self.__folder_scan_queue else True
-            self.__scan_total_files = 0
+            
+            # Immediately get all modified files to establish the total up-front
+            self.__modified_files = self.__get_modified_files(self.__modified_folders)
+            
+            self.__folder_scan_queue = [] # clear it just in case
+            self.__folder_walk_done = False if self.__modified_files else True
+            self.__scan_total_files = len(self.__modified_files)
             self.__scan_processed_files = 0
-            self.__logger.debug('Queued %d folders for file scan', len(self.__folder_scan_queue))
-
-        # Process a bounded number of folders each cycle to keep UI responsive
-        folders_added = 0
-        while self.__folder_scan_queue and len(self.__modified_files) < self.__batch_size * 4 and folders_added < 20 and not self.__pause_looping:
-            folder_entry = self.__folder_scan_queue.pop(0)
-            folder_files = self.__get_modified_files([folder_entry])
-            self.__modified_files.extend(folder_files)
-            self.__scan_total_files += len(folder_files)
-            folders_added += 1
-
-        if not self.__folder_scan_queue:
-            self.__folder_walk_done = True
+            self.__logger.debug('Found %d files to cache from %d folders', self.__scan_total_files, len(self.__modified_folders))
 
         if self.__scan_total_files == 0 and self.__folder_walk_done and not self.__folder_scan_queue and not self.__modified_files:
             self.__logger.debug('No files pending for caching in this cycle')
 
-        # While we have files to process and looping isn't paused
-        while self.__modified_files and not self.__pause_looping:
+        # Process a bounded number of files each cycle to keep UI responsive
+        files_processed_this_cycle = 0
+        while self.__modified_files and not self.__pause_looping and files_processed_this_cycle < self.__batch_size * 4:
             file = self.__modified_files.pop(0)
             self.__current_file = file
             self.__logger.debug('Inserting: %s', file)
@@ -189,15 +182,19 @@ class ImageCache:
             except Exception as e:
                 self.__logger.warning('Skipping unreadable media %s: %s', file, e)
             self.__scan_processed_files += 1
+            files_processed_this_cycle += 1
         self.__current_file = None
 
+        if not self.__modified_files:
+            self.__folder_walk_done = True
+
         # If we've processed all files and exhausted folder queue, update cached folder info
-        if not self.__modified_files and not self.__folder_scan_queue and self.__folder_walk_done:
+        if not self.__modified_files and self.__folder_walk_done:
             self.__update_folder_info(self.__modified_folders)
             self.__modified_folders.clear()
 
         # If looping is still not paused, remove any files or folders from the db that are no longer on disk
-        if not self.__pause_looping:
+        if not self.__pause_looping and not self.__modified_files:
             self.__purge_missing_files_and_folders()
 
         # Commit the current set of changes
@@ -205,7 +202,7 @@ class ImageCache:
         self.__db.commit()
         self.__db_write_lock.release()
 
-        if self.__enable_smart_cache:
+        if self.__enable_smart_cache and not self.__modified_files:
             self.__purge_outside_date_window()
 
     def get_status(self):
@@ -664,13 +661,12 @@ class ImageCache:
 
     def __get_modified_files(self, modified_folders):
         out_of_date_files = []
-        # sql_select = "SELECT fname, last_modified FROM all_data WHERE fname = ? and last_modified >= ?"
         sql_select = """
-        SELECT file.basename, file.last_modified
+        SELECT file.basename, file.extension, file.last_modified
             FROM file
                 INNER JOIN folder
                     ON folder.folder_id = file.folder_id
-            WHERE file.basename = ? AND file.extension = ? AND folder.name = ? AND file.last_modified >= ?
+            WHERE folder.name = ?
         """
         for dir, _date in modified_folders:
             try:
@@ -678,6 +674,12 @@ class ImageCache:
             except OSError as e:
                 self.__logger.warning("Can't list directory %s: %s", dir, e)
                 continue
+                
+            # Fetch all files currently in the DB for this directory
+            folder_db_files = {}
+            for row in self.__db.execute(sql_select, (dir,)):
+                folder_db_files[(row['basename'], row['extension'])] = row['last_modified']
+
             for file in dir_entries:
                 if file.lower() in ImageCache.IGNORE_FILENAMES:
                     continue
@@ -691,8 +693,9 @@ class ImageCache:
                     if self.is_bad_file(full_file):
                         continue
                     mod_tm = os.path.getmtime(full_file)
-                    found = self.__db.execute(sql_select, (base, extension.lstrip("."), dir, mod_tm)).fetchone()
-                    if not found:
+                    
+                    found_mod_tm = folder_db_files.get((base, extension.lstrip(".")), -1)
+                    if found_mod_tm < mod_tm:
                         out_of_date_files.append(full_file)
         return out_of_date_files
 
