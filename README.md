@@ -2,63 +2,29 @@
 
 A feature-rich digital picture frame application for Raspberry Pi using pi3d, with video support, smart caching, and a modern web interface.
 
-## Fork Changes / What's New
-
-This fork includes the following improvements over the original [helgeerbe/picframe](https://github.com/helgeerbe/picframe):
+## Highlights
 
 ### Terminal Configuration TUI (`pfconfig`)
-- **Alphabetized Navigation**: Main categories and each submenu are organized alphabetically for faster scanning.
-- **Intuitive Grouping**: Settings are grouped by workflow (`Display & Rendering`, `UI Overlays`, `Slideshow Timing`, `Caching & Date Filtering`, etc.).
-- **Supported Settings Only**: Removed unsupported AI/cloud/sound entries from TUI menus and aligned visible options to active runtime config keys.
-- **Updated Controls**: Added newer keys such as `viewer.video_every_n_photos`, text absolute positioning (`text_position_mode`, `text_x_position`, `text_y_position`), and `viewer.display_hdmi`.
-- **Choice Selectors**: Uses `< Left/Right >` arrow keys for enum-style options instead of manual typing.
-- **Safety Features**: Includes `[R] Revert` per option and preserves inline YAML comments when saving.
-- **Run locally using**: `./pfconfig.sh`
+- Alphabetized main menu and submenus for fast scanning
+- Intuitive workflow groups (`Display & Rendering`, `UI Overlays`, `Slideshow Timing`, `Caching & Date Filtering`)
+- Supported settings only, aligned to active runtime config keys
+- Includes `video_every_n_photos`, text absolute-position controls, and `display_hdmi`
+- Choice selectors with `< Left/Right >`, plus per-setting `[R]` revert
+- Run locally using: `./pfconfig.sh`
 
-### Display & Power Control
-- Support for secondary HDMI output selection
-- Improved display on/off control logic (DRM sysfs checking for mode 3)
-- Display power modes: 0=vcgencmd, 1=xset, 2=wlr-randr
+### Playback & Caching
+- Photo + video support with AV1 playback
+- Video cadence control with `video_every_n_photos` (plays at least one video every N photos when videos exist)
+- Year-agnostic smart cache window (`YYYY-MM-DD_` naming)
+- Automatic timezone-aware midnight refresh without restart
+- Anniversary cooldown to reduce repeats within the same year
 
-### Video Playback
-- AV1 codec support (libdav1d + libaom-av1)
-- Multiple fixes for video edge cases and badly behaved files
-- Better player/streamer behavior for smoother playback
-- Cache loading flow improvements for seasonal media sets
-
-### Smart Caching & Playback
-- Year-agnostic date filtering with `YYYY-MM-DD_` filename prefix
-- Automatic midnight refresh (timezone-aware) without restart
-- Purges out-of-window files and picks up new files at local midnight
-- Configurable date window (±15 days default)
-- **Anniversary Playback Cooldown**: Prevents photos from repeating endlessly within a calendar year. Once a photo plays, it faces an ~11-month cooldown so it only returns next year during its specific anniversary window.
-
-### Metadata & Geo
-- Geo reverse lookup fixes with User-Agent for Nominatim
-- Retry handling to reduce request failures
-- EXIF orientation handling for both photos and videos
-
-### Database & Cache
-- Idempotent schema migration (avoids startup failures)
-- Dedicated bad-file tracking database (`bad_files_db`)
-- Skip logic for known-bad files during cache refresh
-
-### HTTP / Web UI
-- Modern dark-themed web interface at port 9000
-- Toggle controls for pause/display/shuffle
-- Live cache progress bar
-- Current image thumbnail preview
-- Auto-refresh every 5 seconds
-
-### Installation
-- One-click install script for Raspberry Pi OS Bookworm Lite
-- Hardened startup script with duplicate-process guard
-- labwc compositor autostart configuration
-- Reboot-resumable installer with progress logging
-
-### HTTP Server
-- Reusable HTTP server binding (`allow_reuse_address = True`)
-- Reduced port binding issues on restart
+### Display, Web, and Reliability
+- Multi-mode display power control: `vcgencmd`, `xset`, `wlr-randr`
+- Secondary HDMI output selection support
+- Web UI controls with live cache progress and preview
+- Idempotent DB schema updates and bad-file tracking database
+- Reusable HTTP server binding to reduce restart port conflicts
 
 ---
 
