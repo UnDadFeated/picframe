@@ -146,6 +146,7 @@ class ViewerDisplay:
         self.__cache_scan_processed = 0
         self.__cache_scan_percent = 0.0
         self.__disable_progress_overlays = False
+
         ImageFile.LOAD_TRUNCATED_IMAGES = True  # occasional damaged file hangs app
 
     @property
@@ -687,7 +688,10 @@ class ViewerDisplay:
 
         w = self.__display.width
         h = self.__display.height
-        y_pos = -(h // 2) + margin_y
+        if self.__cache_progress_position == "top-right":
+            y_pos = (h // 2) - margin_y
+        else:
+            y_pos = -(h // 2) + margin_y
 
         pct_val = self.__cache_scan_percent or 0.0
         pct_str = "{:.0f}%".format(pct_val)
@@ -952,8 +956,9 @@ class ViewerDisplay:
             try:
                 self.__draw_cache_indicator(current_file=self.__cache_current_file)
             except Exception as e:
-                self.__disable_progress_overlays = True
-                self.__logger.warning("Disabling progress overlays due to draw error")
+                self.__cache_progress_sprite = None
+                self.__cache_progress_last_text = None
+                self.__logger.warning("Cache overlay draw error; retrying next frame")
                 self.__logger.warning("Cause: %s", e)
         
         # Draw slide-change countdown bar in top-right
@@ -972,8 +977,7 @@ class ViewerDisplay:
                         position=self.__slide_progress_position,
                     )
                 except Exception as e:
-                    self.__disable_progress_overlays = True
-                    self.__logger.warning("Disabling progress overlays due to draw error")
+                    self.__logger.warning("Slide timer draw error; retrying next frame")
                     self.__logger.warning("Cause: %s", e)
         
         return (loop_running, skip_image, video_playing)  # now returns tuple with skip image flag and video_time added

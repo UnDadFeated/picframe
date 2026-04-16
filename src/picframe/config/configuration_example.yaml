@@ -48,7 +48,7 @@ viewer:
   display_y: 0                            # offset from top of screen
   display_w: null                         # width of display surface (null = use max)
   display_h: null                         # height of display surface
-  display_power: 2                        # 0=vcgencmd, 1=xset, 2=wlr-randr (Wayland)
+  display_power: 2                        # default=2, 0=vcgencmd, 1=xset, 2=wlr-randr (Wayland, recommended)
   use_glx: False                          # default=False. Set True for Linux with X server
   use_sdl2: True                          # default=True. Recommended for Wayland/Pi
 
@@ -165,13 +165,10 @@ peripherals:
 
 ai:
   semantic_tagging_enable: False
-  face_aware_kenburns: False
 ambient:
   pir_sensor_pin: 0
   true_tone_adjust: "none"
 dashboard:
-  weather_overlay_enable: False
-  weather_location: ""
   daily_recap_mode: False
 cloud:
   rclone_sync_enable: False

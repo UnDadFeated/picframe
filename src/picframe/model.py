@@ -143,6 +143,9 @@ DEFAULT_CONFIG = {
             'power_down': {'enable': False, 'label': 'Power down', 'shortcut': 'p'}
         },
     },
+    'dashboard': {
+        'daily_recap_mode': False,
+    },
 }
 
 
@@ -201,8 +204,9 @@ class Model:
         with open(configfile, 'r') as stream:
             try:
                 conf = yaml.safe_load(stream)
-                for section in ['viewer', 'model', 'mqtt', 'http', 'peripherals']:
-                    self.__config[section] = {**DEFAULT_CONFIG[section], **conf[section]}
+                for section in ['viewer', 'model', 'mqtt', 'http', 'peripherals', 'dashboard']:
+                    if section in conf:
+                        self.__config[section] = {**DEFAULT_CONFIG.get(section, {}), **conf[section]}
 
                 self.__logger.debug('config data = %s', self.__config)
             except yaml.YAMLError as exc:
@@ -259,7 +263,10 @@ class Model:
         self.tags_filter = model_config['tags_filter']
 
     def get_viewer_config(self):
-        return self.__config['viewer']
+        conf = self.__config['viewer'].copy()
+        if 'dashboard' in self.__config:
+            conf.update(self.__config['dashboard'])
+        return conf
 
     def get_model_config(self):
         return self.__config['model']

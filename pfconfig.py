@@ -170,11 +170,8 @@ FRIENDLY_NAMES = {
     "http.certfile": "SSL External Cert Validation",
 
     "ai.semantic_tagging_enable": "Run Semantic Target Auto-Tagging",
-    "ai.face_aware_kenburns": "Detect Faces for Ken-Burns Panning",
     "ambient.pir_sensor_pin": "PIR Hardware Motion GPIO Pin",
     "ambient.true_tone_adjust": "Ambient True-Tone Adjustment",
-    "dashboard.weather_overlay_enable": "Overlay Dynamic System Weather",
-    "dashboard.weather_location": "City, State / Zip Code for Weather",
     "dashboard.daily_recap_mode": "Daily Nostalgia Anniversary Routine",
     "cloud.rclone_sync_enable": "Sync Files via Rclone Network",
     "cloud.rclone_remote_name": "Rclone Cloud Provider API Name",
@@ -247,11 +244,11 @@ MENU_STRUCTURE = {
         "http.username", "http.use_ssl", "http.password", "http.keyfile", "http.certfile"
     ],
     "AI & Ambient Intelligence": [
-        "ai.semantic_tagging_enable", "ai.face_aware_kenburns",
+        "ai.semantic_tagging_enable",
         "ambient.pir_sensor_pin", "ambient.true_tone_adjust"
     ],
     "Cloud Sync & Dashboards": [
-        "dashboard.weather_overlay_enable", "dashboard.weather_location", "dashboard.daily_recap_mode",
+        "dashboard.daily_recap_mode",
         "cloud.rclone_sync_enable", "cloud.rclone_remote_name", "cloud.rclone_sync_interval"
     ],
     "Audio Soundscapes": [
@@ -332,6 +329,19 @@ def set_nested_val(d, keys, val):
     for key in keys[:-1]:
         d = d[key]
     d[keys[-1]] = val
+
+
+def get_option_comment(keys_path, value):
+    key_path = ".".join(keys_path)
+    leaf_k = keys_path[-1]
+    if leaf_k in CHOICES:
+        return f"choices: {len(CHOICES[leaf_k])}"
+    if leaf_k in SLIDERS:
+        smin, smax = SLIDERS[leaf_k]
+        return f"range: {smin}..{smax}"
+    if isinstance(value, bool):
+        return "toggle on/off"
+    return f"set {key_path}"
 
 class App:
     def __init__(self, stdscr):
@@ -624,6 +634,17 @@ class App:
                             if len(valstr) > w - 46:
                                 valstr = valstr[:w-49] + "..."
                             self.stdscr.addstr(f"{valstr}", attr)
+
+                        option_comment = get_option_comment(keys_path, v)
+                        if option_comment:
+                            row_y = 4 + (i - self.scroll_top)
+                            start_x = max(46, w - 34)
+                            comment_width = max(0, w - start_x - 1)
+                            if comment_width > 8:
+                                comment_text = f" # {option_comment}"
+                                if len(comment_text) > comment_width:
+                                    comment_text = comment_text[:comment_width - 3] + "..."
+                                self.stdscr.addstr(row_y, start_x, comment_text, curses.color_pair(3))
                             
                     if self.scroll_top + max_display < len(items):
                         self.stdscr.addstr(4 + max_display, max(0, w//2 - 9), " ▼ MORE OPTIONS BELOW ▼ ", curses.color_pair(3))
