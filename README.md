@@ -52,11 +52,12 @@ This fork includes the following improvements over the original [helgeerbe/picfr
 - Reduced port binding issues on restart
 
 ### Terminal Configuration TUI (`pfconfig`)
-- Added a full-featured `curses` Text-based UI for modifying `configuration.yaml` without fighting text editors.
-- Safely writes directly to your configs without destroying inline comments or `# README` annotations.
-- Logically groups variables into curated submenus (Display & Visuals, Dates & Caching, Timings & Shuffle) instead of chaotic 100-variable flat lists.
-- Dynamically finds custom unmapped options for extensibility.
-- Run locally using: `./pfconfig.sh`
+- **Full Localization**: Translates over 80+ technical YAML properties into Plain English labels for easy navigation.
+- **Dynamic UX**: Features a color-coded interface (Cyans/Blues/Greens) with a real-time status bar showing underlying YAML keys and boundary logic.
+- **Choice Selectors**: Uses `< Left/Right >` arrow keys to cycle through valid string options (like alignment or transition types) instead of manual typing.
+- **Safety Features**: Includes a one-key `[R] Revert` hotkey to undo local changes per-item and a robust regex-parser that preserves all your original YAML comments and `# README` annotations.
+- **Scroll Indicators**: Visual cues for large menus ensuring no options are hidden off-screen.
+- **Run locally using**: `./pfconfig.sh`
 
 ---
 
