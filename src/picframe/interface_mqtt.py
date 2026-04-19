@@ -19,6 +19,7 @@ import logging
 import json
 import os
 import ssl
+import subprocess
 from typing import Optional, List
 import paho.mqtt.client as mqtt
 from picframe import __version__
@@ -203,6 +204,8 @@ class InterfaceMQTT:
         client.publish(available_topic, "online", qos=0, retain=True)
 
         # sensors
+        self.__setup_sensor(client, "image_path", "mdi:file-document-outline",
+                            available_topic, entity_category="diagnostic")
         self.__setup_text(client, "date_from", "mdi:calendar-arrow-left",
                           available_topic, entity_category="config")
         self.__setup_text(client, "date_to", "mdi:calendar-arrow-right",
@@ -265,6 +268,7 @@ class InterfaceMQTT:
 
         client.subscribe(self.__device_id + "/purge_files", qos=0)  # close down without killing!
         client.subscribe(self.__device_id + "/stop", qos=0)  # close down without killing!
+        client.subscribe(self.__device_id + "/power_down", qos=0)
 
     def __get_dev_element(self) -> dict:
         """
@@ -721,6 +725,15 @@ class InterfaceMQTT:
         elif message.topic == self.__device_id + "/stop":
             self.__controller.stop()
 
+        # power down host device
+        elif message.topic == self.__device_id + "/power_down":
+            self.__logger.info("Received power_down command")
+            self.__controller.stop()
+            try:
+                subprocess.check_call(["sudo", "poweroff"])
+            except Exception as error:  # pylint: disable=broad-except
+                self.__logger.error("Failed to execute poweroff: %s", error)
+
     def publish_state(self, image: Optional[str] = None, image_attr: Optional[dict] = None) -> None:
         """
         Publishes the state of the device to the MQTT broker.
@@ -765,6 +778,7 @@ class InterfaceMQTT:
             self.__logger.info("Send image state: %s", image_state_payload)
             self.__client.publish(image_state_topic, json.dumps(image_state_payload),
                                   qos=0, retain=False)
+            sensor_state_payload["image_path"] = image
 
         # sensor
         # directory sensor
@@ -795,10 +809,16 @@ class InterfaceMQTT:
         self.__setup_select(self.__client, "directory", dir_list,
                             "mdi:folder-multiple-image", available_topic, init=False)
 
+        if "image_path" not in sensor_state_payload:
+            try:
+                sensor_state_payload["image_path"] = self.__controller.get_current_path()
+            except Exception:  # pylint: disable=broad-except
+                sensor_state_payload["image_path"] = ""
+
         self.__logger.info("Send sensor state: %s", sensor_state_payload)
         sensor_state_topic = sensor_topic_head + "/state"
         self.__client.publish(sensor_state_topic, json.dumps(sensor_state_payload),
-                              qos=0, retain=False)
+                              qos=0, retain=True)
 
         # publish state of switches
         # pause
