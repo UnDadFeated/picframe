@@ -231,8 +231,6 @@ class InterfaceMQTT:
         dir_list.sort()
         self.__setup_select(client, "directory", dir_list, "mdi:folder-multiple-image",
                             available_topic, init=True)
-        command_topic = self.__device_id + "/directory"
-        client.subscribe(command_topic, qos=0)
 
         # switches
         self.__setup_switch(client, "text_refresh", "mdi:refresh",
@@ -363,13 +361,14 @@ class InterfaceMQTT:
         """
         text_topic_head = "homeassistant/text/" + self.__device_id
         config_topic = text_topic_head + "_" + topic + "/config"
+        command_topic = self.__device_id + "/" + topic
         name = self.__device_id + "_" + topic
         config_dict = {
             "name": topic,
             "icon": icon,
             "value_template": "{{ value_json." + topic + "}}",
             "state_topic": "homeassistant/sensor/" + self.__device_id + "/state",
-            "command_topic": text_topic_head + "_" + topic + "/cmd",
+            "command_topic": command_topic,
             "avty_t": available_topic,
             "uniq_id": name,
             "dev": self.__get_dev_element()
@@ -379,7 +378,7 @@ class InterfaceMQTT:
 
         config_payload = json.dumps(config_dict)
         client.publish(config_topic, config_payload, qos=0, retain=True)
-        client.subscribe(self.__device_id + "/" + topic, qos=0)
+        client.subscribe(command_topic, qos=0)
 
     def __setup_number(
         self,
