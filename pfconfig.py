@@ -47,6 +47,12 @@ SLIDERS = {
     'update_interval': (1.0, 30.0),
     'video_every_n_photos': (1, 200),
     'video_volume': (0, 100),
+    'display_x': (0, 1920),
+    'display_y': (0, 1080),
+    'display_w': (320, 3840),
+    'display_h': (240, 2160),
+    'rclone_sync_interval': (1, 72),
+    'pir_sensor_pin': (0, 27),
 }
 
 CHOICES = {
@@ -60,6 +66,9 @@ CHOICES = {
     'sort_cols': ['fname ASC', 'fname DESC', 'last_modified ASC', 'last_modified DESC', 'exif_datetime ASC', 'exif_datetime DESC', 'rating DESC', 'rating ASC'],
     'text_justify': ['L', 'C', 'R'],
     'text_position_mode': ['margin', 'absolute'],
+    'log_level': ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+    'true_tone_adjust': ['none', 'warm', 'cool', 'auto'],
+    'sound_profile': ['none', 'acoustic', 'lofi', 'nature', 'ambient'],
 }
 
 FRIENDLY_NAMES = {
@@ -91,6 +100,12 @@ FRIENDLY_NAMES = {
     "model.tags_filter": "Tags Filter",
     "model.time_delay": "Slide Time Delay (sec)",
     "model.update_interval": "Cache Update Interval (sec)",
+    "model.db_file": "Database File Path",
+    "model.bad_files_db": "Bad Files Database Path",
+    "model.image_attr": "Image Attributes for MQTT",
+    "model.key_list": "Geo Lookup Key List",
+    "model.log_level": "Model Log Level",
+    "model.log_file": "Model Log File",
 
     "mqtt.device_id": "MQTT Device ID",
     "mqtt.device_url": "MQTT Device URL",
@@ -108,6 +123,20 @@ FRIENDLY_NAMES = {
     "updater.repo_dir": "Update Repository Path",
     "updater.restart_after_update": "Restart After Update",
 
+    "dashboard.daily_recap_mode": "Daily Recap Mode",
+
+    "cloud.rclone_sync_enable": "Enable Rclone Sync",
+    "cloud.rclone_remote_name": "Rclone Remote Name",
+    "cloud.rclone_sync_interval": "Rclone Sync Interval (hours)",
+
+    "sound.soundscapes_enable": "Enable Soundscapes",
+    "sound.sound_profile": "Sound Profile",
+
+    "ai.semantic_tagging_enable": "Enable Semantic Tagging",
+
+    "ambient.pir_sensor_pin": "PIR Sensor GPIO Pin",
+    "ambient.true_tone_adjust": "True Tone Adjustment",
+
     "peripherals.buttons.display_off.enable": "Enable Display Off Button",
     "peripherals.buttons.display_off.shortcut": "Display Off Shortcut",
     "peripherals.buttons.exit.enable": "Enable Exit Button",
@@ -116,6 +145,10 @@ FRIENDLY_NAMES = {
     "peripherals.buttons.pause.enable": "Enable Pause Button",
     "peripherals.buttons.pause.shortcut": "Pause Shortcut",
     "peripherals.buttons.power_down.enable": "Enable Power Down Button",
+    "peripherals.buttons.power_down.label": "Power Down Label",
+    "peripherals.buttons.power_down.shortcut": "Power Down Shortcut",
+    "peripherals.buttons.exit.label": "Exit Label",
+    "peripherals.buttons.exit.shortcut": "Exit Shortcut",
     "peripherals.input_type": "Input Device Type",
 
     "viewer.background": "Background RGBA",
@@ -184,15 +217,41 @@ FRIENDLY_NAMES = {
     "viewer.video_every_n_photos": "Video Every N Photos",
     "viewer.video_fit_display": "Stretch Video To Display",
     "viewer.video_volume": "Video Volume",
+    "viewer.font_file": "Font File Path",
+    "viewer.shader": "Shader Path",
+    "viewer.log_level": "Viewer Log Level",
+    "viewer.log_max_days": "Viewer Log Max Days",
+    "viewer.display_x": "Display X Offset",
+    "viewer.display_y": "Display Y Offset",
+    "viewer.display_w": "Display Width",
+    "viewer.display_h": "Display Height",
 }
 
 MENU_STRUCTURE = {
+    "Advanced Features": [
+        "dashboard.daily_recap_mode",
+        "ai.semantic_tagging_enable",
+        "ambient.pir_sensor_pin",
+        "ambient.true_tone_adjust",
+        "sound.soundscapes_enable",
+        "sound.sound_profile",
+    ],
     "Caching & Date Filtering": [
         "viewer.cache_refresh_timezone",
         "viewer.cache_start_min_files",
         "viewer.date_range_days",
         "viewer.enable_date_filter",
         "viewer.enable_smart_cache",
+    ],
+    "Cloud Storage": [
+        "cloud.rclone_sync_enable",
+        "cloud.rclone_remote_name",
+        "cloud.rclone_sync_interval",
+    ],
+    "Database": [
+        "model.db_file",
+        "model.bad_files_db",
+        "model.image_attr",
     ],
     "Display & Rendering": [
         "viewer.background",
@@ -202,10 +261,16 @@ MENU_STRUCTURE = {
         "viewer.blur_zoom",
         "viewer.display_hdmi",
         "viewer.display_power",
+        "viewer.display_x",
+        "viewer.display_y",
+        "viewer.display_w",
+        "viewer.display_h",
         "viewer.edge_alpha",
         "viewer.fit",
         "viewer.fps",
+        "viewer.font_file",
         "viewer.kenburns",
+        "viewer.shader",
         "viewer.use_glx",
         "viewer.use_sdl2",
         "viewer.video_fit_display",
@@ -215,6 +280,7 @@ MENU_STRUCTURE = {
         "model.follow_links",
         "model.geo_key",
         "model.load_geoloc",
+        "model.key_list",
         "model.locale",
         "model.location_filter",
         "model.no_files_img",
@@ -233,6 +299,12 @@ MENU_STRUCTURE = {
         "http.use_http",
         "http.use_ssl",
         "http.username",
+    ],
+    "Logging": [
+        "viewer.log_level",
+        "viewer.log_max_days",
+        "model.log_level",
+        "model.log_file",
     ],
     "Matting": [
         "viewer.inner_mat_border",
@@ -258,12 +330,19 @@ MENU_STRUCTURE = {
     "Peripherals": [
         "peripherals.buttons.display_off.enable",
         "peripherals.buttons.display_off.shortcut",
+        "peripherals.buttons.display_off.label",
         "peripherals.buttons.exit.enable",
+        "peripherals.buttons.exit.shortcut",
+        "peripherals.buttons.exit.label",
         "peripherals.buttons.location.enable",
         "peripherals.buttons.location.shortcut",
+        "peripherals.buttons.location.label",
         "peripherals.buttons.pause.enable",
         "peripherals.buttons.pause.shortcut",
+        "peripherals.buttons.pause.label",
         "peripherals.buttons.power_down.enable",
+        "peripherals.buttons.power_down.shortcut",
+        "peripherals.buttons.power_down.label",
         "peripherals.input_type",
     ],
     "Updates": [
