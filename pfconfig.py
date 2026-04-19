@@ -534,15 +534,16 @@ class App:
             mapped_keys.update(cats)
             
         flat_all = flatten_keys(self.data, [])
-        unmapped = []
-        for keys_path, v in flat_all:
-            k_str = ".".join(keys_path)
-            if k_str not in mapped_keys and not isinstance(v, list):
-                unmapped.append(k_str)
-                
-        if unmapped:
-            self.categories["All Unmapped Options"] = sorted(unmapped)
-            
+        # Unmapped options are now fully covered by MENU_STRUCTURE - no auto-generated category needed
+        # unmapped = []
+        # for keys_path, v in flat_all:
+        #     k_str = ".".join(keys_path)
+        #     if k_str not in mapped_keys and not isinstance(v, list):
+        #         unmapped.append(k_str)
+        #         
+        # if unmapped:
+        #     self.categories["All Unmapped Options"] = sorted(unmapped)
+        
         self.sections = list(self.categories.keys())
         
     def draw_message(self, msg, wait=False):
