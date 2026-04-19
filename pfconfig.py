@@ -60,7 +60,7 @@ CHOICES = {
     'cache_progress_position': ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'top-center', 'bottom-center'],
     'clock_justify': ['L', 'C', 'R'],
     'clock_top_bottom': ['T', 'B'],
-    'display_power': [0, 1, 2],
+    'display_power': ['vcgencmd ( Raspberry Pi )', 'xset ( X11 )', 'wlr-randr ( Wayland )'],
     'input_type': ['keyboard', 'touch', 'mouse', None],
     'slide_progress_position': ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'top-center', 'bottom-center'],
     'sort_cols': ['fname ASC', 'fname DESC', 'last_modified ASC', 'last_modified DESC', 'exif_datetime ASC', 'exif_datetime DESC', 'rating DESC', 'rating ASC'],
@@ -69,6 +69,10 @@ CHOICES = {
     'log_level': ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
     'true_tone_adjust': ['none', 'warm', 'cool', 'auto'],
     'sound_profile': ['none', 'acoustic', 'lofi', 'nature', 'ambient'],
+}
+
+CHOICE_VALUES = {
+    'display_power': {0: 'vcgencmd ( Raspberry Pi )', 1: 'xset ( X11 )', 2: 'wlr-randr ( Wayland )'},
 }
 
 FRIENDLY_NAMES = {
@@ -172,7 +176,7 @@ FRIENDLY_NAMES = {
     "viewer.clock_wdt_offset_pct": "Clock Horizontal Offset %",
     "viewer.date_range_days": "Date Filter Window (days)",
     "viewer.display_hdmi": "Display Output Name",
-    "viewer.display_power": "Display Power Mode",
+    "viewer.display_power": "Display Power Control Method",
     "viewer.edge_alpha": "Edge Alpha",
     "viewer.enable_date_filter": "Enable Date Filter",
     "viewer.enable_smart_cache": "Enable Smart Cache",
@@ -736,7 +740,9 @@ class App:
                         # Process Status Bar extraction for highlighted item
                         if is_sel:
                             if leaf_k in CHOICES:
-                                bounds = f"Choices: {len(CHOICES[leaf_k])} variations (Switch with LEFT/RIGHT)"
+                                # Show actual choice names instead of count
+                                choice_names = [str(c) for c in CHOICES[leaf_k]]
+                                bounds = f"Options: {', '.join(choice_names[:3])}" + ("..." if len(choice_names) > 3 else "")
                             elif leaf_k in SLIDERS:
                                 bounds = f"Slider Min {SLIDERS[leaf_k][0]} to Max {SLIDERS[leaf_k][1]}"
                             elif isinstance(v, bool):
@@ -753,8 +759,12 @@ class App:
                         
                         if leaf_k in CHOICES:
                             opts = CHOICES[leaf_k]
+                            # Convert actual value to display value if mapping exists
+                            display_val = v
+                            if leaf_k in CHOICE_VALUES:
+                                display_val = CHOICE_VALUES[leaf_k].get(v, v)
                             try:
-                                valstr = str(v) if v is not None else "None"
+                                valstr = str(display_val) if display_val is not None else "None"
                                 if len(valstr) > 17:
                                     valstr = valstr[:14] + "..."
                                 self.stdscr.addstr(f"< {valstr:^17} >"[:w-42], disp_color)
@@ -819,17 +829,35 @@ class App:
                         
                         if leaf_k in CHOICES and c in (curses.KEY_LEFT, curses.KEY_RIGHT):
                             opts = CHOICES[leaf_k]
-                            try:
-                                c_idx = opts.index(v)
-                            except ValueError:
-                                c_idx = 0
+                            current_val = v
+                            # Convert from display value to actual value if mapping exists
+                            if leaf_k in CHOICE_VALUES:
+                                reverse_map = {v: k for k, v in CHOICE_VALUES[leaf_k].items()}
+                                actual_val = reverse_map.get(current_val, current_val)
+                                try:
+                                    c_idx = opts.index(current_val) if current_val in opts else list(CHOICE_VALUES[leaf_k].keys()).index(actual_val)
+                                except (ValueError, KeyError):
+                                    c_idx = 0
+                            else:
+                                try:
+                                    c_idx = opts.index(v)
+                                except ValueError:
+                                    c_idx = 0
                                 
                             if c == curses.KEY_LEFT:
                                 next_idx = (c_idx - 1) % len(opts)
                             else:
                                 next_idx = (c_idx + 1) % len(opts)
-                                
-                            set_nested_val(self.data, keys_path, opts[next_idx])
+                            
+                            # Convert back from display value to actual value
+                            new_display_val = opts[next_idx]
+                            if leaf_k in CHOICE_VALUES:
+                                reverse_map = {v: k for k, v in CHOICE_VALUES[leaf_k].items()}
+                                new_val = reverse_map.get(new_display_val, new_display_val)
+                            else:
+                                new_val = new_display_val
+                            
+                            set_nested_val(self.data, keys_path, new_val)
                             
                         elif isinstance(v, bool) and c in (10, 13, 32, curses.KEY_LEFT, curses.KEY_RIGHT):
                             set_nested_val(self.data, keys_path, not v)
