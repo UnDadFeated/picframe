@@ -1,16 +1,21 @@
-# Picframe - Digital Picture Frame for Raspberry Pi
+# Picframe v1.0.1 - Digital Picture Frame for Raspberry Pi
 
-A feature-rich digital picture frame application for Raspberry Pi using pi3d, with video support, smart caching, and a modern web interface.
+A feature-rich digital picture frame application for Raspberry Pi using pi3d, with video support, smart caching, MQTT integration, auto-update, and a modern web interface.
 
 ## Highlights
 
 ### Terminal Configuration TUI (`pfconfig`)
 - Alphabetized main menu and submenus for fast scanning
-- Intuitive workflow groups (`Display & Rendering`, `UI Overlays`, `Slideshow Timing`, `Caching & Date Filtering`)
-- Supported settings only, aligned to active runtime config keys
-- Includes `video_every_n_photos`, text absolute-position controls, and `display_hdmi`
+- 14 intuitive workflow groups (`Display & Rendering`, `UI Overlays`, `Updates`, etc.)
+- Intuitive choice selectors - see actual option names instead of numbers
 - Choice selectors with `< Left/Right >`, plus per-setting `[R]` revert
 - Run locally using: `./pfconfig.sh`
+
+### Auto-Update
+- Configure automatic updates on startup from your GitHub fork
+- Works with pip-installed versions (no local git repo needed)
+- Enable via `pfconfig` menu: `Updates` → `Auto Update On Start`
+- Point to your fork's branch and URL for seamless updates
 
 ### Playback & Caching
 - Photo + video support with AV1 playback
@@ -20,11 +25,12 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 - Anniversary cooldown to reduce repeats within the same year
 
 ### Display, Web, and Reliability
-- Multi-mode display power control: `vcgencmd`, `xset`, `wlr-randr`
+- Multi-mode display power control with readable names: `vcgencmd (Raspberry Pi)`, `xset (X11)`, `wlr-randr (Wayland)`
 - Secondary HDMI output selection support
 - Web UI controls with live cache progress and preview
 - Idempotent DB schema updates and bad-file tracking database
 - Reusable HTTP server binding to reduce restart port conflicts
+- MQTT integration with Home Assistant
 
 ---
 
