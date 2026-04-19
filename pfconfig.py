@@ -104,6 +104,7 @@ FRIENDLY_NAMES = {
     "updater.auto_update_on_start": "Auto Update On Start",
     "updater.git_branch": "Update Git Branch",
     "updater.git_remote": "Update Git Remote",
+    "updater.pip_git_url": "Update Pip Git URL",
     "updater.repo_dir": "Update Repository Path",
     "updater.restart_after_update": "Restart After Update",
 
@@ -269,6 +270,7 @@ MENU_STRUCTURE = {
         "updater.auto_update_on_start",
         "updater.git_branch",
         "updater.git_remote",
+        "updater.pip_git_url",
         "updater.repo_dir",
         "updater.restart_after_update",
     ],

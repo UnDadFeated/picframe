@@ -123,33 +123,48 @@ def run_startup_auto_update(updater_config, logger):
     if not updater_config.get('auto_update_on_start', False):
         return False
 
-    repo_dir = os.path.expanduser(updater_config.get('repo_dir', '~/Picframe2/picframe'))
-    git_remote = updater_config.get('git_remote', 'fork')
     git_branch = updater_config.get('git_branch', 'dev')
+    repo_dir = os.path.expanduser(updater_config.get('repo_dir', '')).strip()
 
     try:
-        logger.info("Auto-update enabled. Checking %s/%s in %s", git_remote, git_branch, repo_dir)
-        fetch_cmd = ["git", "fetch", git_remote, git_branch]
-        subprocess.run(fetch_cmd, cwd=repo_dir, check=True, capture_output=True, text=True)
+        if repo_dir:
+            git_remote = updater_config.get('git_remote', 'fork')
+            logger.info("Auto-update enabled. Checking %s/%s in %s", git_remote, git_branch, repo_dir)
+            fetch_cmd = ["git", "fetch", git_remote, git_branch]
+            subprocess.run(fetch_cmd, cwd=repo_dir, check=True, capture_output=True, text=True)
 
-        local_rev = subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=repo_dir, check=True,
-            capture_output=True, text=True
-        ).stdout.strip()
-        remote_rev = subprocess.run(
-            ["git", "rev-parse", f"{git_remote}/{git_branch}"], cwd=repo_dir, check=True,
-            capture_output=True, text=True
-        ).stdout.strip()
+            local_rev = subprocess.run(
+                ["git", "rev-parse", "HEAD"], cwd=repo_dir, check=True,
+                capture_output=True, text=True
+            ).stdout.strip()
+            remote_rev = subprocess.run(
+                ["git", "rev-parse", f"{git_remote}/{git_branch}"], cwd=repo_dir, check=True,
+                capture_output=True, text=True
+            ).stdout.strip()
 
-        if local_rev == remote_rev:
-            logger.info("Auto-update check complete: already up to date")
-            return False
+            if local_rev == remote_rev:
+                logger.info("Auto-update check complete: already up to date")
+                return False
 
-        logger.warning("Update available. Pulling %s/%s", git_remote, git_branch)
-        pull_cmd = ["git", "pull", "--ff-only", git_remote, git_branch]
-        subprocess.run(pull_cmd, cwd=repo_dir, check=True, capture_output=True, text=True)
-        logger.warning("Auto-update applied successfully")
-        return True
+            logger.warning("Update available. Pulling %s/%s", git_remote, git_branch)
+            pull_cmd = ["git", "pull", "--ff-only", git_remote, git_branch]
+            subprocess.run(pull_cmd, cwd=repo_dir, check=True, capture_output=True, text=True)
+            logger.warning("Auto-update applied successfully")
+            return True
+
+        pip_git_url = updater_config.get('pip_git_url', 'https://github.com/UnDadFeated/picframe.git')
+        package_spec = f"git+{pip_git_url}@{git_branch}"
+        logger.info("Auto-update enabled (pip mode). Installing %s", package_spec)
+        cmd = [sys.executable, '-m', 'pip', 'install', '--upgrade', package_spec]
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+
+        output = (result.stdout or '') + (result.stderr or '')
+        if 'Successfully installed' in output or 'Successfully uninstalled' in output:
+            logger.warning("Auto-update applied successfully via pip")
+            return True
+
+        logger.info("Auto-update check complete: package already satisfied")
+        return False
     except Exception as exc:  # pylint: disable=broad-except
         logger.error("Startup auto-update failed: %s", exc)
         return False

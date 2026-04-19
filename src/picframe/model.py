@@ -151,7 +151,8 @@ DEFAULT_CONFIG = {
         'auto_update_on_start': False,
         'git_branch': 'dev',
         'git_remote': 'fork',
-        'repo_dir': '~/Picframe2/picframe',
+        'pip_git_url': 'https://github.com/UnDadFeated/picframe.git',
+        'repo_dir': '',
         'restart_after_update': True,
     },
 }
