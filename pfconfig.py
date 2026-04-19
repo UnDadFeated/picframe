@@ -101,6 +101,12 @@ FRIENDLY_NAMES = {
     "mqtt.tls": "MQTT TLS CA Path",
     "mqtt.use_mqtt": "Enable MQTT",
 
+    "updater.auto_update_on_start": "Auto Update On Start",
+    "updater.git_branch": "Update Git Branch",
+    "updater.git_remote": "Update Git Remote",
+    "updater.repo_dir": "Update Repository Path",
+    "updater.restart_after_update": "Restart After Update",
+
     "peripherals.buttons.display_off.enable": "Enable Display Off Button",
     "peripherals.buttons.display_off.shortcut": "Display Off Shortcut",
     "peripherals.buttons.exit.enable": "Enable Exit Button",
@@ -258,6 +264,13 @@ MENU_STRUCTURE = {
         "peripherals.buttons.pause.shortcut",
         "peripherals.buttons.power_down.enable",
         "peripherals.input_type",
+    ],
+    "Updates": [
+        "updater.auto_update_on_start",
+        "updater.git_branch",
+        "updater.git_remote",
+        "updater.repo_dir",
+        "updater.restart_after_update",
     ],
     "Slideshow Timing": [
         "model.fade_time",

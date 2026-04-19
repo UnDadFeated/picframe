@@ -4,6 +4,7 @@ import argparse
 import os
 import locale
 import sys
+import subprocess
 from shutil import copytree
 
 from picframe import model, viewer_display, controller, __version__
@@ -118,6 +119,42 @@ def setup_logging(log_level='WARNING', log_max_days=10):
     return logger
 
 
+def run_startup_auto_update(updater_config, logger):
+    if not updater_config.get('auto_update_on_start', False):
+        return False
+
+    repo_dir = os.path.expanduser(updater_config.get('repo_dir', '~/Picframe2/picframe'))
+    git_remote = updater_config.get('git_remote', 'fork')
+    git_branch = updater_config.get('git_branch', 'dev')
+
+    try:
+        logger.info("Auto-update enabled. Checking %s/%s in %s", git_remote, git_branch, repo_dir)
+        fetch_cmd = ["git", "fetch", git_remote, git_branch]
+        subprocess.run(fetch_cmd, cwd=repo_dir, check=True, capture_output=True, text=True)
+
+        local_rev = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=repo_dir, check=True,
+            capture_output=True, text=True
+        ).stdout.strip()
+        remote_rev = subprocess.run(
+            ["git", "rev-parse", f"{git_remote}/{git_branch}"], cwd=repo_dir, check=True,
+            capture_output=True, text=True
+        ).stdout.strip()
+
+        if local_rev == remote_rev:
+            logger.info("Auto-update check complete: already up to date")
+            return False
+
+        logger.warning("Update available. Pulling %s/%s", git_remote, git_branch)
+        pull_cmd = ["git", "pull", "--ff-only", git_remote, git_branch]
+        subprocess.run(pull_cmd, cwd=repo_dir, check=True, capture_output=True, text=True)
+        logger.warning("Auto-update applied successfully")
+        return True
+    except Exception as exc:  # pylint: disable=broad-except
+        logger.error("Startup auto-update failed: %s", exc)
+        return False
+
+
 def main():
     # First, create a basic logger to capture early startup messages
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
@@ -173,6 +210,13 @@ def main():
     log_level = viewer_config.get('log_level', 'WARNING')
     log_max_days = viewer_config.get('log_max_days', 10)
     setup_logging(log_level, log_max_days)
+
+    startup_logger = logging.getLogger("start.py")
+    updater_config = m.get_updater_config() if hasattr(m, 'get_updater_config') else {}
+    did_update = run_startup_auto_update(updater_config, startup_logger)
+    if did_update and updater_config.get('restart_after_update', True):
+        startup_logger.warning("Restarting picframe process after auto-update")
+        os.execv(sys.executable, [sys.executable] + sys.argv)
 
     v = viewer_display.ViewerDisplay(m.get_viewer_config())
     c = controller.Controller(m, v)

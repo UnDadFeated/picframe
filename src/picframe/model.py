@@ -147,6 +147,13 @@ DEFAULT_CONFIG = {
     'dashboard': {
         'daily_recap_mode': False,
     },
+    'updater': {
+        'auto_update_on_start': False,
+        'git_branch': 'dev',
+        'git_remote': 'fork',
+        'repo_dir': '~/Picframe2/picframe',
+        'restart_after_update': True,
+    },
 }
 
 
@@ -205,7 +212,7 @@ class Model:
         with open(configfile, 'r') as stream:
             try:
                 conf = yaml.safe_load(stream)
-                for section in ['viewer', 'model', 'mqtt', 'http', 'peripherals', 'dashboard']:
+                for section in ['viewer', 'model', 'mqtt', 'http', 'peripherals', 'dashboard', 'updater']:
                     if section in conf:
                         self.__config[section] = {**DEFAULT_CONFIG.get(section, {}), **conf[section]}
 
@@ -324,6 +331,9 @@ class Model:
 
     def get_peripherals_config(self):
         return self.__config['peripherals']
+
+    def get_updater_config(self):
+        return self.__config['updater']
 
     @property
     def fade_time(self):

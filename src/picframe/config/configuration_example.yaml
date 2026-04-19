@@ -170,6 +170,13 @@ ambient:
   true_tone_adjust: "none"
 dashboard:
   daily_recap_mode: False
+updater:
+  auto_update_on_start: False              # auto-run git fetch/pull before slideshow starts
+  git_branch: "dev"                       # branch to track for updates
+  git_remote: "fork"                      # git remote name to pull from (your fork)
+  repo_dir: "~/Picframe2/picframe"        # local repository path on device
+  restart_after_update: True               # restart process automatically when update is applied
+
 cloud:
   rclone_sync_enable: False
   rclone_remote_name: "google_drive:"
