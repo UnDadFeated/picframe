@@ -117,22 +117,25 @@ DEFAULT_CONFIG = {
         'tags_filter': '',
     },
     'mqtt': {
-        'use_mqtt': False,  # Set tue true, to enable mqtt
+        'use_mqtt': False,
         'server': '',
-        'port': 8883,
+        'port': 1883,
         'login': '',
         'password': '',
         'tls': '',
-        'device_id': 'picframe',  # unique id of device. change if there is more than one picture frame
+        'device_id': 'picframe',
         'device_url': '',
     },
     'http': {
         'use_http': False,
         'path': '~/picframe_data/html',
         'port': 9000,
+        'auth': False,
+        'username': '',
+        'password': None,
         'use_ssl': False,
-        'keyfile': "/path/to/key.pem",
-        'certfile': "/path/to/fullchain.pem"
+        'keyfile': '',
+        'certfile': ''
     },
     'peripherals': {
         'input_type': None,  # valid options: {None, "keyboard", "touch", "mouse"}

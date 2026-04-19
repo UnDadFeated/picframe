@@ -120,10 +120,10 @@ model:
 
 mqtt:
   use_mqtt: False                         # enable MQTT control
-  server: "your_mqtt_broker"              # hostname of broker
-  port: 8883                              # 8883 for TLS, 1883 otherwise
+  server: ""                               # hostname of broker (e.g., 192.168.1.100)
+  port: 1883                              # 8883 for TLS, 1883 otherwise
   login: ""                               # mqtt username
-  password: ""                            # mqtt password
+  password: ""                           # mqtt password
   tls: ""                                 # path to ca.crt (empty = no TLS)
   device_id: "picframe"                   # unique device ID
   device_url: ""                          # URL for Home Assistant state link
@@ -132,12 +132,12 @@ http:
   use_http: True                          # enable web interface
   path: "~/picframe_data/html"            # folder for HTML files
   port: 9000                              # HTTP port (must be > 1024)
-  auth: false                             # enable basic auth
-  username: admin                         # auth username
-  password: null                          # auth password (null = random)
+  auth: False                             # enable basic auth
+  username: ""                            # auth username
+  password: null                          # auth password (null = random, "" = disabled)
   use_ssl: False                          # enable HTTPS
-  keyfile: "path/to/key.pem"              # private-key
-  certfile: "path/to/cert.pem"            # certificate
+  keyfile: ""                             # private-key path (empty = no SSL)
+  certfile: ""                            # certificate path (empty = no SSL)
 
 peripherals:
   input_type: null                        # input device: {null, "keyboard", "touch", "mouse"}
