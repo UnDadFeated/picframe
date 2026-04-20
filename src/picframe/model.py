@@ -546,10 +546,19 @@ class Model:
             # Load the current image set
             file_ids = self.__file_list[selected_idx]
             pic_row = self.__image_cache.get_file_info(file_ids[0])
-            pic1 = Pic(**pic_row) if pic_row is not None else None
+            if pic_row is not None:
+                # Filter out 'extension' which is not a Pic parameter but is present in all_data view
+                pic_data = {k: v for k, v in dict(pic_row).items() if k != 'extension'}
+                pic1 = Pic(**pic_data)
+            else:
+                pic1 = None
             if len(file_ids) == 2:
                 pic_row = self.__image_cache.get_file_info(file_ids[1])
-                pic2 = Pic(**pic_row) if pic_row is not None else None
+                if pic_row is not None:
+                    pic_data = {k: v for k, v in dict(pic_row).items() if k != 'extension'}
+                    pic2 = Pic(**pic_data)
+                else:
+                    pic2 = None
 
 
             # Verify the images in the selected image set actually exist on disk
