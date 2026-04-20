@@ -1,4 +1,4 @@
-# Picframe v1.0.1 - Digital Picture Frame for Raspberry Pi
+# Picframe v1.0.4 - Digital Picture Frame for Raspberry Pi
 
 A feature-rich digital picture frame application for Raspberry Pi using pi3d, with video support, smart caching, MQTT integration, auto-update, and a modern web interface.
 
@@ -189,6 +189,8 @@ viewer:
   video_every_n_photos: 10                # if videos exist, force at least 1 video every N photos
   video_volume: 0                          # 0 = muted, 100 = full volume
   video_fit_display: True                  # True = stretch to fit
+  video_progress_show: True              # show video duration countdown
+  video_play_immediately: True            # start video when fade-in completes
   
   # Web interface
   show_cache_indicator: True               # show cache building progress
