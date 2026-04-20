@@ -415,6 +415,7 @@ class ImageCache:
             SELECT
                 folder.name || "/" || file.basename || "." || file.extension AS fname,
                 file.last_modified,
+                file.extension AS extension,
                 meta.*,
                 meta.height > meta.width as is_portrait,
                 location.description as location
@@ -565,6 +566,7 @@ class ImageCache:
                 folder.name || "/" || file.basename || "." || file.extension AS fname,
                 file.last_modified,
                 file.last_displayed,
+                file.extension AS extension,
                 meta.*,
                 meta.height > meta.width as is_portrait,
                 location.description as location
