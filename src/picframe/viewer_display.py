@@ -8,7 +8,7 @@ from PIL import Image, ImageFilter, ImageFile
 import numpy as np
 import pi3d  # type: ignore
 from picframe import mat_image, get_image_meta
-from picframe.video_streamer import VideoStreamer, VIDEO_EXTENSIONS, VideoFrameExtractor
+from picframe.video_streamer import VideoStreamer, VIDEO_EXTENSIONS, VideoFrameExtractor, get_video_info
 
 
 # utility functions with no dependency on ViewerDisplay properties
@@ -89,6 +89,8 @@ class ViewerDisplay:
         self.__cache_progress_last_text = None  # last full combined text rendered
         self.__fit = config['fit']
         self.__video_fit_display = config['video_fit_display']
+        self.__video_show_progress = config.get('video_progress_show', True)
+        self.__video_play_immediately = config.get('video_play_immediately', True)
         self.__geo_suppress_list = config['geo_suppress_list']
         self.__kenburns = config['kenburns']
         
@@ -122,6 +124,8 @@ class ViewerDisplay:
         self.__sbg = None  # slide for foreground
         self.__last_frame_tex = None  # slide for last frame of video
         self.__video_path = None  # path to video file
+        self.__video_duration = None  # seconds for active video slide
+        self.__video_start_tm = None  # playback start time for active video
         self.__next_tm = 0.0
         self.__name_tm = 0.0
         self.__in_transition = False
@@ -763,7 +767,7 @@ class ViewerDisplay:
         self.__initial_load_text = None
         self.__first_real_image_shown = False  # Track if first real image (not no_pictures) was shown
 
-    def __load_video_frames(self, video_path: str) -> Optional[tuple[pi3d.Texture, pi3d.Texture]]:
+    def __load_video_frames(self, video_path: str) -> tuple[Optional[tuple[pi3d.Texture, pi3d.Texture]], Optional[float]]:
         """
         Load the first and last frames of a video and create textures.
 
@@ -774,11 +778,14 @@ class ViewerDisplay:
 
         Returns:
         --------
-        Optional[tuple[pi3d.Texture, pi3d.Texture]]
-            A tuple containing textures for the first and last frames, or None if loading fails.
+        tuple[Optional[tuple[pi3d.Texture, pi3d.Texture]], Optional[float]]
+            A tuple of (textures, duration_seconds). Textures are first/last frame
+            textures, or None if extraction fails. Duration is None if metadata read fails.
         """
         try:
             self.__logger.debug("Loading video frames: %s", video_path)
+            metadata = get_video_info(video_path)
+            duration = metadata.duration if metadata.duration > 0.0 else None
             extractor = VideoFrameExtractor(
                 video_path, self.__display.width, self.__display.height, fit_display=self.__video_fit_display
             )
@@ -788,14 +795,13 @@ class ViewerDisplay:
                 # Create textures for the first and last frames
                 first_frame_tex = pi3d.Texture(frame_first, blend=True, m_repeat=True, free_after_load=True)
                 last_frame_tex = pi3d.Texture(frame_last, blend=True, m_repeat=True, free_after_load=True)
-                return first_frame_tex, last_frame_tex
-            else:
-                self.__logger.warning("Failed to retrieve frames from video: %s", video_path)
-                return None
+                return (first_frame_tex, last_frame_tex), duration
+            self.__logger.warning("Failed to retrieve frames from video: %s", video_path)
+            return None, duration
         except Exception as e:
             self.__logger.warning("Can't create video textures from file: %s", video_path)
             self.__logger.warning("Cause: %s", e)
-            return None
+            return None, None
 
     def slideshow_is_running(self, pics: Optional[List[Optional[get_image_meta.GetImageMeta]]] = None,
                              time_delay: float = 200.0, fade_time: float = 10.0,
@@ -823,11 +829,14 @@ class ViewerDisplay:
             - Whether a video is currently playing.
         """
         loop_running = self.__display.loop_running()
+        tm = time.time()
         # if video is playing, we are done here
         video_playing = False
         if self.is_video_playing():
             self.pause_video(paused)
             video_playing = True
+            if self.__video_start_tm is None:
+                self.__video_start_tm = tm
             if self.__last_frame_tex is not None:  # first time through
                 self.__sfg = self.__last_frame_tex
                 self.__last_frame_tex = None
@@ -835,20 +844,23 @@ class ViewerDisplay:
             self.__slide.draw()
             return (loop_running, False, video_playing)  # now returns tuple with skip image flag and video_time added
 
-        tm = time.time()
         if pics is not None:
             self.stop_video()
+            self.__video_start_tm = None
+            self.__video_duration = None
             if pics[0] and os.path.splitext(pics[0].fname)[1].lower() in VIDEO_EXTENSIONS:
                 self.__video_path = pics[0].fname
-                textures = self.__load_video_frames(self.__video_path)
+                textures, duration = self.__load_video_frames(self.__video_path)
+                self.__video_duration = duration
                 if textures is not None:
                     new_sfg, self.__last_frame_tex = textures
                 else:
                     new_sfg = None
             else:  # normal image or image pair
+                self.__video_path = None
                 new_sfg = self.__tex_load(pics, (self.__display.width, self.__display.height))
             tm = time.time()
-            self.__next_tm = tm + time_delay
+            self.__next_tm = tm + (self.__video_duration if self.__video_duration is not None else time_delay)
             self.__name_tm = tm + fade_time + self.__show_text_tm  # legacy text timer
             self.__text_end_tm = self.__next_tm + fade_time
             self.__text_start_tm = tm
@@ -907,7 +919,10 @@ class ViewerDisplay:
             self.__in_transition = True  # set __in_transition True a few seconds *before* end of previous slide
         else:  # no transition effect safe to update database, resuffle etc
             self.__in_transition = False
-            if self.__video_path is not None and tm > self.__name_tm:
+            can_start_video = self.__video_path is not None and (
+                self.__video_play_immediately or tm > self.__name_tm
+            )
+            if can_start_video:
                 # start video stream
                 if self.__video_streamer is None or not self.__video_streamer.player_alive():
                     self.__video_streamer = VideoStreamer(
@@ -918,6 +933,7 @@ class ViewerDisplay:
                     )
                 else:
                     self.__video_streamer.play(self.__video_path)
+                self.__video_start_tm = tm
                 self.__video_path = None
 
         skip_image = False  # can add possible reasons to skip image below here
@@ -961,14 +977,23 @@ class ViewerDisplay:
                 self.__logger.warning("Cache overlay draw error; retrying next frame")
                 self.__logger.warning("Cause: %s", e)
         
-        # Draw slide-change countdown bar in top-right
+        # Draw slide-change countdown text
         if not self.__disable_progress_overlays and self.__show_progress_bar and self.__first_real_image_shown:
-            time_left = self.__next_tm - tm
-            countdown_window_start = self.__next_tm - time_delay + 1.0
-            countdown_window_end = self.__next_tm - fade_time - 1.0
-            countdown_total = max(0.1, countdown_window_end - countdown_window_start)
-            if countdown_window_start <= tm <= countdown_window_end:
-                countdown_left = countdown_window_end - tm
+            countdown_left = None
+            countdown_total = None
+            if self.is_video_playing() and self.__video_show_progress and self.__video_duration is not None:
+                if self.__video_start_tm is None:
+                    self.__video_start_tm = tm
+                elapsed = max(0.0, tm - self.__video_start_tm)
+                countdown_left = max(0.0, self.__video_duration - elapsed)
+                countdown_total = max(0.1, self.__video_duration)
+            else:
+                countdown_window_start = self.__next_tm - time_delay + 1.0
+                countdown_window_end = self.__next_tm - fade_time - 1.0
+                if countdown_window_start <= tm <= countdown_window_end:
+                    countdown_left = max(0.0, countdown_window_end - tm)
+                    countdown_total = max(0.1, countdown_window_end - countdown_window_start)
+            if countdown_left is not None and countdown_total is not None:
                 try:
                     self.__draw_progress_bar(
                         countdown_left,
@@ -991,6 +1016,7 @@ class ViewerDisplay:
         """
         if self.__video_streamer is not None:
             self.__video_streamer.stop()
+        self.__video_start_tm = None
 
     def is_video_playing(self) -> bool:
         """

@@ -33,6 +33,8 @@ DEFAULT_CONFIG = {
         'text_width': None,                   # max width for text wrapping in pixels
         'text_line_spacing': 1.2,              # line spacing multiplier for multi-line text
         'video_volume': 0,                   # video volume 0-100 (set to 0 to mute)
+        'video_progress_show': True,          # show countdown while videos are playing
+        'video_play_immediately': True,       # start video when fade-in completes
         'slide_progress_show': True,          # show slide countdown text
         'slide_progress_font_size': 11,        # slide countdown text font size
         'show_cache_indicator': True,          # show cache building indicator on startup
