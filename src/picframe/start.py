@@ -101,7 +101,7 @@ def setup_logging(log_level='WARNING', log_max_days=10):
         interval=1,  # daily rotation
         backupCount=log_max_days
     )
-    file_handler.setLevel(logging.DEBUG)  # Capture all runtime logs in file
+    file_handler.setLevel(logging.INFO)  # Capture INFO+ runtime logs in file
     file_formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
