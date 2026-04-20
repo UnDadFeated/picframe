@@ -130,7 +130,7 @@ class ImageCache:
                 (file_path, error, time.time())
             )
             self.__bad_files_db.commit()
-            self.__logger.info("Added to bad files: %s - %s", file_path, error)
+            self.__logger.warning("Added to bad files: %s - %s", file_path, error)
         except Exception as e:
             self.__logger.warning("Failed to add bad file to DB: %s", e)
 
