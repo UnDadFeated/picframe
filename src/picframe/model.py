@@ -2,6 +2,7 @@ import yaml
 import os
 import shutil
 import time
+import random
 import logging
 import locale
 from picframe import geo_reverse, image_cache
@@ -53,7 +54,9 @@ DEFAULT_CONFIG = {
         'enable_smart_cache': True,            # only retain/cache media in configured date window
         'cache_refresh_timezone': 'America/Los_Angeles',  # timezone for midnight refresh
         'cache_start_min_files': 0,            # keep waiting screen until this many files are cached (0 = wait until cache build completes)
-        'video_every_n_photos': 10,             # when videos exist, enforce at least one video every N photos
+        'video_every_n_photos': 10,             # legacy cadence: when videos exist, enforce at least one video every N photos
+        'video_ratio_videos': 1,                # randomized X/Y mixer: videos numerator
+        'video_ratio_total': 10,                # randomized X/Y mixer: total media denominator
         'fit': False,
         'video_fit_display': True,
         'kenburns': False,
@@ -233,8 +236,10 @@ class Model:
         self.__current_pics = (None, None)  # this hold a tuple of (pic, None) or two pic objects if portrait pairs
         self.__num_run_through = 0
         self.__date_filter_applied = False  # Track if date filter was applied on current reload
-        self.__video_every_n_photos = max(1, int(self.__config['viewer'].get('video_every_n_photos', 10)))
-        self.__photos_since_last_video = 0
+        self.__video_ratio_videos = max(0, int(self.__config['viewer'].get('video_ratio_videos', 1)))
+        self.__video_ratio_total = max(1, int(self.__config['viewer'].get('video_ratio_total', 10)))
+        if self.__video_ratio_videos > self.__video_ratio_total:
+            self.__video_ratio_videos = self.__video_ratio_total
         self.__selection_where_clause = "1"
         self.__selection_has_videos = False
 
@@ -471,14 +476,24 @@ class Model:
             return False
         return self.__image_cache.is_video_file(file_ids[0]) if self.__image_cache is not None else False
 
-    def __select_due_video_index(self):
+    def __choose_target_media_type(self):
+        if not self.__selection_has_videos:
+            return 'photo'
+        if self.__video_ratio_videos <= 0:
+            return 'photo'
+        if self.__video_ratio_videos >= self.__video_ratio_total:
+            return 'video'
+        return 'video' if random.random() < (self.__video_ratio_videos / self.__video_ratio_total) else 'photo'
+
+    def __select_next_index_by_media_type(self, target_media_type):
         if self.__image_cache is None or self.__number_of_files == 0:
             return None
+        want_video = target_media_type == 'video'
         max_search = min(self.__number_of_files, 200)
         for offset in range(max_search):
             idx = (self.__file_index + offset) % self.__number_of_files
             file_ids = self.__file_list[idx]
-            if self.__is_video_file_id(file_ids):
+            if self.__is_video_file_id(file_ids) == want_video:
                 return idx
         return None
 
@@ -527,11 +542,12 @@ class Model:
                 continue
 
             selected_idx = self.__file_index
-            if (self.__selection_has_videos and
-                    self.__photos_since_last_video >= self.__video_every_n_photos):
-                due_video_idx = self.__select_due_video_index()
-                if due_video_idx is not None:
-                    selected_idx = due_video_idx
+            target_media_type = self.__choose_target_media_type()
+            preferred_idx = self.__select_next_index_by_media_type(target_media_type)
+            if preferred_idx is None:
+                # Fallback: if target type unavailable (no videos in current window or all quarantined), use next available media
+                preferred_idx = self.__file_index
+            selected_idx = preferred_idx
 
             # Load the current image set
             file_ids = self.__file_list[selected_idx]
@@ -566,10 +582,6 @@ class Model:
 
             # If pic1 is valid here, everything is OK. Break out of the loop and return the set
             if pic1:
-                if self.__is_video_file_id(file_ids):
-                    self.__photos_since_last_video = 0
-                else:
-                    self.__photos_since_last_video += 1
                 break
 
 
@@ -667,7 +679,6 @@ class Model:
         self.__file_index = 0
         self.__num_run_through = 0
         self.__selection_has_videos = self.__image_cache.has_videos(where_clause)
-        self.__photos_since_last_video = 0
         self.__logger.info("Loaded %d files from cache", self.__number_of_files)
 
         self.__reload_files = self.__number_of_files == 0
