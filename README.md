@@ -1,12 +1,12 @@
-# Picframe v1.0.4 - Digital Picture Frame for Raspberry Pi
+# Picframe v1.0.6 - Digital Picture Frame for Raspberry Pi
 
 A feature-rich digital picture frame application for Raspberry Pi using pi3d, with video support, smart caching, MQTT integration, auto-update, and a modern web interface.
 
 ## Highlights
 
 ### Terminal Configuration TUI (`pfconfig`)
-- Alphabetized main menu and submenus for fast scanning
-- 14 intuitive workflow groups (`Display & Rendering`, `UI Overlays`, `Updates`, etc.)
+- Reorganized with dedicated **Photos**, **Videos**, and **Database Management** submenus
+- 18 intuitive workflow groups for fast scanning
 - Intuitive choice selectors - see actual option names instead of numbers
 - Choice selectors with `< Left/Right >`, plus per-setting `[R]` revert
 - Run locally using: `./pfconfig.sh`
@@ -19,10 +19,11 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 
 ### Playback & Caching
 - Photo + video support with AV1 playback
-- Video cadence control with `video_every_n_photos` (plays at least one video every N photos when videos exist)
+- **Video ratio control** (`video_ratio_videos`/`video_ratio_total`) - randomized X/Y ratio, e.g., 1/10 = 1 video per 10 media items
+- **Photo cooldown** (`photo_quarantine_days`) - fixed days before a photo can be shown again (default 330 days)
+- **Video cooldown** (`video_quarantine_days`) - fixed days before a video can be shown again (default 330 days)
 - Year-agnostic smart cache window (`YYYY-MM-DD_` naming)
 - Automatic timezone-aware midnight refresh without restart
-- Anniversary cooldown to reduce repeats within the same year
 
 ### Display, Web, and Reliability
 - Multi-mode display power control with readable names: `vcgencmd (Raspberry Pi)`, `xset (X11)`, `wlr-randr (Wayland)`
@@ -185,12 +186,18 @@ viewer:
   display_power: 2                         # 0=vcgencmd, 1=xset, 2=wlr-randr
   use_sdl2: True                            # use SDL2 (recommended for Pi)
   
-  # Video
-  video_every_n_photos: 10                # if videos exist, force at least 1 video every N photos
-  video_volume: 0                          # 0 = muted, 100 = full volume
-  video_fit_display: True                  # True = stretch to fit
-  video_progress_show: True              # show video duration countdown
-  video_play_immediately: True            # start video when fade-in completes
+  # Video ratio (X/Y randomized)
+  video_ratio_enabled: True              # enable randomized video/photo ratio
+  video_ratio_videos: 1                  # X videos per Y total (e.g., 1 = 1 video per total)
+  video_ratio_total: 10                  # Y total media denominator
+  video_quarantine_days: 330          # fixed cooldown days before video eligible again
+  video_volume: 0                    # 0 = muted, 100 = full volume
+  video_fit_display: True              # True = stretch to fit
+  video_progress_show: True          # show video duration countdown
+  video_play_immediately: True        # start video when fade-in completes
+
+  # Photo cooldown
+  photo_quarantine_days: 330            # fixed cooldown days before photo eligible again
   
   # Web interface
   show_cache_indicator: True               # show cache building progress
