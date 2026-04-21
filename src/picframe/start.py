@@ -226,11 +226,31 @@ def main():
     log_max_days = viewer_config.get('log_max_days', 10)
     setup_logging(log_level, log_max_days)
 
-    startup_logger = logging.getLogger("start.py")
-    updater_config = m.get_updater_config() if hasattr(m, 'get_updater_config') else {}
+startup_logger = logging.getLogger("start.py")
+    updater_config = m.get_viewer_config().get('updater', {}) if hasattr(m, 'get_viewer_config') else {}
     did_update = run_startup_auto_update(updater_config, startup_logger)
     if did_update and updater_config.get('restart_after_update', True):
-        startup_logger.warning("Restarting picframe process after auto-update")
+        startup_logger.warning("Restarting picframe after auto-update - gracefully shutting down")
+        # Get current process PID before we do anything
+        current_pid = os.getpid()
+        
+        # Send SIGTERM to gracefully stop the current process (this will trigger clean shutdown in controller)
+        try:
+            import signal
+            os.kill(current_pid, signal.SIGTERM)
+        except OSError:
+            pass
+        
+        # Wait briefly for clean shutdown (max 3 seconds)
+        for _ in range(30):
+            time.sleep(0.1)
+            try:
+                os.kill(current_pid, 0)
+            except OSError:
+                break  # Process has exited
+        
+        # Small delay then restart
+        time.sleep(0.5)
         os.execv(sys.executable, [sys.executable] + sys.argv)
 
     v = viewer_display.ViewerDisplay(m.get_viewer_config())

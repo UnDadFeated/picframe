@@ -302,8 +302,9 @@ class Controller:
         return pic.fname
 
     def loop(self):  # TODO exit loop gracefully and call image_cache.stop()
-        # catch ctrl-c
+        # catch ctrl-c and termination signals for graceful shutdown
         signal.signal(signal.SIGINT, self.__signal_handler)
+        signal.signal(signal.SIGTERM, self.__signal_handler)
 
         video_extended = False
         while self.keep_looping:
