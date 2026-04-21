@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import copy
+import json
 
 CONFIG_PATHS = [
     "configuration.yaml",
@@ -555,7 +556,19 @@ class App:
         with open(self.path, 'r') as f:
             self.yaml_text = f.read()
             
-        self.data = yaml.safe_load(self.yaml_text)
+        self.data = yaml.safe_load(self.yaml_text) or {}
+        
+        # Ensure all MENU_STRUCTURE keys exist in data (create if missing)
+        for keys_list in MENU_STRUCTURE.values():
+            for full_key in keys_list:
+                parts = full_key.split('.')
+                if len(parts) == 2:
+                    section, key = parts
+                    if section not in self.data:
+                        self.data[section] = {}
+                    if key not in self.data[section]:
+                        self.data[section][key] = None
+        
         self.original_data = copy.deepcopy(self.data)
         
         self.build_categories()
@@ -747,7 +760,8 @@ class App:
                     for k_str in keys_list:
                         keys_path = k_str.split('.')
                         v = get_nested_val(self.data, keys_path)
-                        if v is not None and not isinstance(v, list):
+                        # Include values that exist (including None from defaults, but exclude lists)
+                        if not isinstance(v, list):
                             items.append((keys_path, v))
                     
                     self.stdscr.addstr(2, 2, f"SECTION: {self.current_section.upper()}", curses.color_pair(3) | curses.A_BOLD)
