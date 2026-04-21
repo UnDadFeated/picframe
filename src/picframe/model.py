@@ -6,6 +6,7 @@ import random
 import logging
 import locale
 from picframe import geo_reverse, image_cache
+from picframe.video_streamer import VIDEO_EXTENSIONS
 
 DEFAULT_CONFIGFILE = "~/picframe_data/config/configuration.yaml"
 DEFAULT_CONFIG = {
@@ -55,8 +56,11 @@ DEFAULT_CONFIG = {
         'cache_refresh_timezone': 'America/Los_Angeles',  # timezone for midnight refresh
         'cache_start_min_files': 0,            # keep waiting screen until this many files are cached (0 = wait until cache build completes)
         'video_every_n_photos': 10,             # legacy cadence: when videos exist, enforce at least one video every N photos
+        'video_ratio_enabled': True,            # enable randomized X/Y video ratio selection
         'video_ratio_videos': 1,                # randomized X/Y mixer: videos numerator
         'video_ratio_total': 10,                # randomized X/Y mixer: total media denominator
+        'video_quarantine_days': 330,           # fixed cooldown days before a video is eligible again
+        'photo_quarantine_days': 330,           # fixed cooldown days before a photo is eligible again
         'fit': False,
         'video_fit_display': True,
         'kenburns': False,
@@ -236,8 +240,11 @@ class Model:
         self.__current_pics = (None, None)  # this hold a tuple of (pic, None) or two pic objects if portrait pairs
         self.__num_run_through = 0
         self.__date_filter_applied = False  # Track if date filter was applied on current reload
+        self.__video_ratio_enabled = bool(self.__config['viewer'].get('video_ratio_enabled', True))
         self.__video_ratio_videos = max(0, int(self.__config['viewer'].get('video_ratio_videos', 1)))
         self.__video_ratio_total = max(1, int(self.__config['viewer'].get('video_ratio_total', 10)))
+        self.__video_quarantine_days = max(0, int(self.__config['viewer'].get('video_quarantine_days', 330)))
+        self.__photo_quarantine_days = max(0, int(self.__config['viewer'].get('photo_quarantine_days', 330)))
         if self.__video_ratio_videos > self.__video_ratio_total:
             self.__video_ratio_videos = self.__video_ratio_total
         self.__selection_where_clause = "1"
@@ -477,6 +484,8 @@ class Model:
         return self.__image_cache.is_video_file(file_ids[0]) if self.__image_cache is not None else False
 
     def __choose_target_media_type(self):
+        if not self.__video_ratio_enabled:
+            return 'any'
         if not self.__selection_has_videos:
             return 'photo'
         if self.__video_ratio_videos <= 0:
@@ -488,6 +497,8 @@ class Model:
     def __select_next_index_by_media_type(self, target_media_type):
         if self.__image_cache is None or self.__number_of_files == 0:
             return None
+        if target_media_type == 'any':
+            return self.__file_index
         want_video = target_media_type == 'video'
         max_search = min(self.__number_of_files, 200)
         for offset in range(max_search):
@@ -631,24 +642,34 @@ class Model:
         # Apply date range filter if enabled (show photos within +/- date_range_days of current date, year-agnostic)
         if self.__config['viewer'].get('enable_date_filter', False):
             date_range = self.__config['viewer'].get('date_range_days', 15)
-            
+
             import datetime
             today = datetime.date.today()
             candidates = []
             for i in range(-date_range, date_range + 1):
                 d = today + datetime.timedelta(days=i)
                 candidates.append(d.strftime('%m-%d'))
-            
+
             in_clause = ",".join(f"'{c}'" for c in candidates)
             where_list.append(f"strftime('%m-%d', exif_datetime, 'unixepoch', 'localtime') IN ({in_clause})")
-            
-            # Do not play twice in the same year: dynamically calculate cooldown
-            # The cooldown spans roughly a year minus the window duration, preventing replays in the same period.
-            cooldown_days = max(1, 365 - (date_range * 2) - 30)
-            cooldown_seconds = cooldown_days * 24 * 3600
-            where_list.append(f"IFNULL(last_displayed, 0) < {(time.time() - cooldown_seconds):.0f}")
-            
             self.__logger.debug("Date filter applied: +/- %d days (Anniversary)", date_range)
+
+        # Per-media cooldown windows (0 disables cooldown for that media type)
+        video_ext_sql = ",".join(f"'{ext.lstrip('.')}'" for ext in VIDEO_EXTENSIONS)
+        cooldown_clauses = []
+        if self.__photo_quarantine_days > 0:
+            photo_cutoff = time.time() - (self.__photo_quarantine_days * 24 * 3600)
+            cooldown_clauses.append(f"(LOWER(extension) NOT IN ({video_ext_sql}) AND IFNULL(last_displayed, 0) < {photo_cutoff:.0f})")
+        else:
+            cooldown_clauses.append(f"(LOWER(extension) NOT IN ({video_ext_sql}))")
+
+        if self.__video_quarantine_days > 0:
+            video_cutoff = time.time() - (self.__video_quarantine_days * 24 * 3600)
+            cooldown_clauses.append(f"(LOWER(extension) IN ({video_ext_sql}) AND IFNULL(last_displayed, 0) < {video_cutoff:.0f})")
+        else:
+            cooldown_clauses.append(f"(LOWER(extension) IN ({video_ext_sql}))")
+
+        where_list.append(f"({' OR '.join(cooldown_clauses)})")
 
         if len(where_list) > 0:
             where_clause = " AND ".join(where_list)  # TODO now always true - remove unreachable code

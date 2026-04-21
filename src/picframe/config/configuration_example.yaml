@@ -23,8 +23,11 @@ viewer:
   video_volume: 0                         # video volume 0-100 (0 to mute)
   video_progress_show: True               # show countdown while videos are playing
   video_play_immediately: True            # start video when fade-in completes
+  video_ratio_enabled: True               # enable randomized video/photo ratio selection
   video_ratio_videos: 1                   # randomized X/Y ratio numerator (videos)
   video_ratio_total: 10                   # randomized X/Y ratio denominator (total media)
+  video_quarantine_days: 330              # fixed cooldown days before a video can be shown again
+  photo_quarantine_days: 330              # fixed cooldown days before a photo can be shown again
   slide_progress_show: True               # show slide countdown text
   slide_progress_font_size: 11            # slide countdown text size
   slide_progress_position: "top-right"    # countdown position: top-right or bottom-right
