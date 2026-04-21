@@ -5,7 +5,6 @@ import os
 import re
 import sys
 import copy
-import json
 
 CONFIG_PATHS = [
     "configuration.yaml",
@@ -558,7 +557,43 @@ class App:
             
         self.data = yaml.safe_load(self.yaml_text) or {}
         
-        # Ensure all MENU_STRUCTURE keys exist in data (create if missing)
+        # Ensure all MENU_STRUCTURE keys exist in data (create with defaults if missing)
+        defaults = {
+            # Updater defaults (fork/dev settings)
+            'updater': {
+                'auto_update_on_start': False,
+                'git_branch': 'dev',
+                'git_remote': 'fork',
+                'pip_git_url': 'https://github.com/UnDadFeated/picframe.git',
+                'repo_dir': '',
+                'restart_after_update': True,
+            },
+            # Cloud defaults
+            'cloud': {
+                'rclone_sync_enable': False,
+                'rclone_remote_name': 'google_drive:',
+                'rclone_sync_interval': 24,
+            },
+            # Sound defaults
+            'sound': {
+                'soundscapes_enable': False,
+                'sound_profile': 'none',
+            },
+            # AI defaults
+            'ai': {
+                'semantic_tagging_enable': False,
+            },
+            # Ambient defaults
+            'ambient': {
+                'pir_sensor_pin': 0,
+                'true_tone_adjust': 'none',
+            },
+            # Dashboard defaults
+            'dashboard': {
+                'daily_recap_mode': False,
+            },
+        }
+        
         for keys_list in MENU_STRUCTURE.values():
             for full_key in keys_list:
                 parts = full_key.split('.')
@@ -567,7 +602,11 @@ class App:
                     if section not in self.data:
                         self.data[section] = {}
                     if key not in self.data[section]:
-                        self.data[section][key] = None
+                        # Use defaults if available, otherwise None
+                        if section in defaults and key in defaults[section]:
+                            self.data[section][key] = defaults[section][key]
+                        else:
+                            self.data[section][key] = None
         
         self.original_data = copy.deepcopy(self.data)
         
