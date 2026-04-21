@@ -73,6 +73,12 @@ CHOICES = {
     'log_level': ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
     'true_tone_adjust': ['none', 'warm', 'cool', 'auto'],
     'sound_profile': ['none', 'acoustic', 'lofi', 'nature', 'ambient'],
+    'updater.auto_update_on_start': [True, False],
+    'updater.restart_after_update': [True, False],
+    'dashboard.daily_recap_mode': [True, False],
+    'cloud.rclone_sync_enable': [True, False],
+    'sound.soundscapes_enable': [True, False],
+    'ai.semantic_tagging_enable': [True, False],
 }
 
 CHOICE_VALUES = {
