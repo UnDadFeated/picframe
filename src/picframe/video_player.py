@@ -56,6 +56,7 @@ class VideoPlayer:
         self._hide_window_request: bool = False
         self._last_time: int = 0
         self._last_progress_time: float = 0.0
+        self._last_heartbeat: float = 0.0
         self._startup: bool = True
 
     def setup(self) -> bool:
@@ -290,6 +291,10 @@ class VideoPlayer:
                 state = self.player.get_state() if self.player else None
                 if state == vlc.State.Playing:
                     self.check_video_progress()
+                    now = time.time()
+                    if now - self._last_heartbeat > 2.0:
+                        print("HEARTBEAT", flush=True)
+                        self._last_heartbeat = now
 
                 # Only handle commands
                 try:
