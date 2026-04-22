@@ -1,4 +1,0 @@
-[TYPECHECK]
-generated-members=cv2.*
-[FORMAT]
-max-line-length=100
