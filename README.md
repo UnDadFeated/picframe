@@ -81,7 +81,7 @@ sudo apt-get update && sudo apt-get install -y git
 
 # Clone and run installer
 cd /home/pi
-git clone -b dev https://github.com/UnDadFeated/picframe.git
+git clone -b main https://github.com/UnDadFeated/picframe.git
 cd picframe
 chmod +x install_picframe.sh
 ./install_picframe.sh
