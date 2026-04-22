@@ -49,7 +49,7 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/helgeerbe/picframe"
+"Homepage" = "https://github.com/UnDadFeated/picframe"
 
 [project.scripts]
 picframe = "picframe.start:main"

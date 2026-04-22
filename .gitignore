@@ -139,4 +139,4 @@ dmypy.json
 .pyre/
 
 #mac os
-.DS_Store
+.DS_Storepfconfig.py
