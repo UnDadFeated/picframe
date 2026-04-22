@@ -229,9 +229,9 @@ def main():
     updater_config = m.get_viewer_config().get('updater', {}) if hasattr(m, 'get_viewer_config') else {}
     did_update = run_startup_auto_update(updater_config, startup_logger)
     if did_update and updater_config.get('restart_after_update', True):
-    startup_logger.warning("Restarting picframe after auto-update - gracefully shutting down")
-    # Get current process PID before we do anything
-    current_pid = os.getpid()
+        startup_logger.warning("Restarting picframe after auto-update - gracefully shutting down")
+        # Get current process PID before we do anything
+        current_pid = os.getpid()
         # Send SIGTERM to gracefully stop the current process (this will trigger clean shutdown in controller)
         try:
             import signal
