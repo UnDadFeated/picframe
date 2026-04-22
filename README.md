@@ -1,4 +1,4 @@
-# Picframe v1.0.6 - Digital Picture Frame for Raspberry Pi
+# Picframe v1.0.8 — Digital picture frame for Raspberry Pi
 
 A feature-rich digital picture frame application for Raspberry Pi using pi3d, with video support, smart caching, MQTT integration, auto-update, and a modern web interface.
 
@@ -275,6 +275,8 @@ MIT License - same as upstream [helgeerbe/picframe](https://github.com/helgeerbe
 ---
 
 ## Links
+
+The canonical GitHub repository name is **`picframe`** (for example `UnDadFeated/picframe`). An older checkout or umbrella label **Picframe2** referred to the same project and should no longer be used for new clones, remotes, or documentation.
 
 - Original project: https://github.com/helgeerbe/picframe
 - This fork: https://github.com/UnDadFeated/picframe

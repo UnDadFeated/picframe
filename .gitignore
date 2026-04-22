@@ -4,6 +4,8 @@ docs/diagrams/out/
 
 #ide settings
 .vscode/
+.cursor/
+.kilo/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
