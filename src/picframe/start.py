@@ -225,7 +225,7 @@ def main():
     log_level = viewer_config.get('log_level', 'WARNING')
     log_max_days = viewer_config.get('log_max_days', 10)
     setup_logging(log_level, log_max_days)
-        startup_logger = logging.getLogger("start.py")
+    startup_logger = logging.getLogger("start.py")
     updater_config = m.get_viewer_config().get('updater', {}) if hasattr(m, 'get_viewer_config') else {}
     did_update = run_startup_auto_update(updater_config, startup_logger)
     if did_update and updater_config.get('restart_after_update', True):
