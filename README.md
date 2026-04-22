@@ -1,4 +1,4 @@
-# Picframe v1.1.0 — Digital picture frame for Raspberry Pi
+# Picframe v1.1.1 — Digital picture frame for Raspberry Pi
 
 A feature-rich digital picture frame application for Raspberry Pi using pi3d, with video support, smart caching, MQTT integration, auto-update, and a modern web interface.
 
@@ -35,7 +35,7 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 
 ---
 
-## Release v1.1.0
+## Release v1.1.1
 
 - Add video overlay functionality: configurable on-screen video text (filename, duration, title, etc.) during playback.
 - Fixes and improvements: type-hinting and packaging fixes, video metadata handling, improved viewer display logic.
