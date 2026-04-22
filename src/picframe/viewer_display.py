@@ -7,7 +7,7 @@ from datetime import datetime
 from PIL import Image, ImageFilter, ImageFile
 import numpy as np
 import pi3d  # type: ignore
-from picframe import mat_image, get_image_meta
+from picframe import mat_image, get_image_meta, model
 from picframe.video_streamer import VideoStreamer, VIDEO_EXTENSIONS, VideoFrameExtractor, get_video_info
 
 
@@ -16,7 +16,7 @@ def txt_to_bit(txt):
     txt_map = {"title": 1, "caption": 2, "name": 4, "date": 8, "location": 16, "folder": 32,
                "camera": 64, "lens": 128, "iso": 256, "aperture": 512, "exposure": 1024,
                "white_balance": 2048, "flash": 4096, "metering": 8192, "software": 16384,
-               "artist": 32768, "copyright": 65536}
+               "artist": 32768, "copyright": 65536, "duration": 131072, "codec": 262144}
     if txt in txt_map:
         return txt_map[txt]
     return 0
@@ -27,7 +27,7 @@ def parse_show_text(txt):
     txt = txt.lower()
     for txt_key in ("title", "caption", "name", "date", "location", "folder", "camera", "lens",
                     "iso", "aperture", "exposure", "white_balance", "flash", "metering",
-                    "software", "artist", "copyright"):
+                    "software", "artist", "copyright", "duration", "codec"):
         if txt_key in txt:
             show_text |= txt_to_bit(txt_key)
     return show_text
@@ -71,6 +71,8 @@ class ViewerDisplay:
         self.__show_text_fm = config['show_text_fm']
         self.__show_text_sz = config['show_text_sz']
         self.__show_text = parse_show_text(config['show_text'])
+        self.__show_video_text = parse_show_text(config.get('show_video_text', 'name'))
+        self.__show_video_text_tm = float(config.get('show_video_text_tm', 20.0))
         self.__text_justify = config['text_justify'].upper()
         self.__text_bkg_hgt = config['text_bkg_hgt'] if 0 <= config['text_bkg_hgt'] <= 1 else 0.25
         self.__text_opacity = config['text_opacity']
@@ -129,6 +131,7 @@ class ViewerDisplay:
         self.__xstep = None
         self.__ystep = None
         self.__textblocks = [None, None]
+        self.__video_textblocks = [None, None]  # text blocks for video overlays
         self.__text_bkg = None
         self.__sfg = None  # slide for background
         self.__sbg = None  # slide for foreground
@@ -136,8 +139,13 @@ class ViewerDisplay:
         self.__video_path = None  # path to video file
         self.__video_duration = None  # seconds for active video slide
         self.__video_start_tm = None  # playback start time for active video
+        self.__video_metadata = None  # metadata for active video
         self.__next_tm = 0.0
         self.__name_tm = 0.0
+        self.__text_start_tm = None
+        self.__text_end_tm = None
+        self.__video_text_start_tm = None
+        self.__video_text_end_tm = None
         self.__in_transition = False
         self.__matter = None
         self.__prev_clock_time = None
@@ -578,6 +586,89 @@ class ViewerDisplay:
             self.__textblocks[1] = None
         self.__textblocks[side] = block
 
+    def __make_video_text(self, video_meta):  # noqa: C901
+        # Similar to __make_text but for video metadata
+        info_strings = []
+        if video_meta is not None and self.__show_video_text > 0:
+            if (self.__show_video_text & 1) == 1 and video_meta.title is not None:  # title
+                info_strings.append(video_meta.title)
+            if (self.__show_video_text & 2) == 2 and video_meta.caption is not None:  # caption
+                info_strings.append(video_meta.caption)
+            if (self.__show_video_text & 4) == 4:  # name
+                info_strings.append(os.path.basename(video_meta.fname) if hasattr(video_meta, 'fname') else "Video")
+            if (self.__show_video_text & 8) == 8 and video_meta.exif_datetime is not None and video_meta.exif_datetime > 0:  # date
+                fdt = time.strftime(self.__show_text_fm, time.localtime(video_meta.exif_datetime))
+                info_strings.append(fdt)
+            if (self.__show_video_text & 16) == 16 and video_meta.location is not None:  # location
+                location = video_meta.location
+                # search for and remove substrings from the location text
+                if self.__geo_suppress_list is not None:
+                    for part in self.__geo_suppress_list:
+                        location = location.replace(part, "")
+                    # remove any redundant concatination strings once the substrings have been removed
+                    location = location.replace(" ,", "")
+                    # remove any trailing commas or spaces from the location
+                    location = location.strip(", ")
+                info_strings.append(location)
+            if (self.__show_video_text & 32) == 32:  # folder
+                info_strings.append(os.path.basename(os.path.dirname(video_meta.fname)) if hasattr(video_meta, 'fname') else "")
+            if (self.__show_video_text & 64) == 64 and video_meta.make is not None:  # camera
+                cam = video_meta.make
+                if video_meta.model:
+                    cam = f"{cam} {video_meta.model}"
+                info_strings.append(cam)
+            if (self.__show_video_text & 128) == 128 and video_meta.lens is not None:  # lens
+                info_strings.append(video_meta.lens)
+            if (self.__show_video_text & 256) == 256 and video_meta.iso is not None:  # iso
+                info_strings.append(f"ISO {video_meta.iso}")
+            if (self.__show_video_text & 512) == 512 and video_meta.f_number is not None:  # aperture
+                info_strings.append(f"f/{video_meta.f_number}")
+            if (self.__show_video_text & 1024) == 1024 and video_meta.exposure_time is not None:  # exposure
+                info_strings.append(video_meta.exposure_time)
+            if (self.__show_video_text & 2048) == 2048 and video_meta.white_balance is not None:  # white balance
+                info_strings.append(str(video_meta.white_balance))
+            if (self.__show_video_text & 4096) == 4096 and video_meta.flash is not None:  # flash
+                info_strings.append(str(video_meta.flash))
+            if (self.__show_video_text & 8192) == 8192 and video_meta.metering_mode is not None:  # metering
+                info_strings.append(str(video_meta.metering_mode))
+            if (self.__show_video_text & 16384) == 16384 and video_meta.software is not None:  # software
+                info_strings.append(str(video_meta.software))
+            if (self.__show_video_text & 32768) == 32768 and video_meta.artist is not None:  # artist
+                info_strings.append(str(video_meta.artist))
+            if (self.__show_video_text & 65536) == 65536 and video_meta.copyright is not None:  # copyright
+                info_strings.append(str(video_meta.copyright))
+            if (self.__show_video_text & 131072) == 131072 and video_meta.duration > 0:  # duration
+                minutes = int(video_meta.duration // 60)
+                seconds = int(video_meta.duration % 60)
+                info_strings.append(f"{minutes}:{seconds:02d}")
+            # codec not implemented yet
+        final_string = " • ".join(info_strings)
+
+        block = None
+        if len(final_string) > 0:
+            c_rng = self.__display.width - self.__text_x_margin
+            if self.__text_width is not None and self.__text_width < c_rng:
+                c_rng = self.__text_width
+            block = pi3d.FixedString(self.__font_file, final_string, shadow_radius=3, font_size=self.__show_text_sz,
+                                     shader=self.__flat_shader, justify=self.__text_justify, width=c_rng,
+                                     color=(255, 255, 255, 255))
+            adj_x = (c_rng - block.sprite.width) // 2
+            if self.__text_justify == "L":
+                adj_x *= -1
+            elif self.__text_justify == "C":
+                adj_x = 0
+            x = adj_x
+            if self.__text_position_mode == 'absolute' and self.__text_x_position is not None:
+                x = self.__text_x_position
+            if self.__text_position_mode == 'absolute' and self.__text_y_position is not None:
+                y = self.__text_y_position
+            else:
+                y = (block.sprite.height - self.__display.height + self.__show_text_sz) // 2 + self.__text_y_margin
+            block.sprite.position(x, y, 0.1)
+            block.sprite.set_alpha(0.0)
+        self.__video_textblocks[0] = block
+        self.__video_textblocks[1] = None
+
     def __draw_clock(self):
         current_time = datetime.now().strftime(self.__clock_format)
 
@@ -643,7 +734,7 @@ class ViewerDisplay:
             self.__image_overlay.draw()
 
     def __draw_progress_bar(self, time_left: float, total_time: float,
-                            countdown: int = None, position: str = "bottom-right",
+                            countdown: Optional[int] = None, position: str = "bottom-right",
                             overlay_text: Optional[str] = None):
         """Draw slide-change countdown (e.g. '3s') or custom overlay_text (e.g. video M:SS).
 
@@ -680,7 +771,7 @@ class ViewerDisplay:
         self.__progress_countdown.sprite.position(x_pos + bar_width // 2 + 16, y_pos, 3.6)
         self.__progress_countdown.sprite.draw()
 
-    def __draw_cache_indicator(self, current_file: str = None):
+    def __draw_cache_indicator(self, current_file: Optional[str] = None):
         """Draw cache build progress at bottom-right.
 
         Renders the text right-aligned so both filename and % stay at fixed
@@ -803,6 +894,7 @@ class ViewerDisplay:
         try:
             self.__logger.debug("Loading video frames: %s", video_path)
             metadata = get_video_info(video_path)
+            self.__video_metadata = metadata  # store metadata
             duration = metadata.duration if metadata.duration > 0.0 else None
             extractor = VideoFrameExtractor(
                 video_path, self.__display.width, self.__display.height, fit_display=self.__video_fit_display
@@ -821,7 +913,7 @@ class ViewerDisplay:
             self.__logger.warning("Cause: %s", e)
             return None, None
 
-    def slideshow_is_running(self, pics: Optional[List[Optional[get_image_meta.GetImageMeta]]] = None,
+    def slideshow_is_running(self, pics: Optional[Tuple[Optional[model.Pic], Optional[model.Pic]]] = None,
                              time_delay: float = 200.0, fade_time: float = 10.0,
                              paused: bool = False) -> Tuple[bool, bool, bool]:
         """
@@ -863,6 +955,17 @@ class ViewerDisplay:
             self.__draw_overlay()
             if self.clock_is_on:
                 self.__draw_clock()
+            # Draw video text overlays
+            if self.__video_text_start_tm is not None and self.__video_text_end_tm is not None:
+                if self.__video_text_start_tm <= tm < self.__video_text_end_tm:
+                    alpha = 1.0  # for now, full opacity
+                    for block in self.__video_textblocks:
+                        if block is not None:
+                            block.sprite.set_alpha(alpha)
+                            block.sprite.draw()
+                    if self.__text_bkg_hgt and any(block is not None for block in self.__video_textblocks):
+                        self.__text_bkg.set_alpha(alpha)
+                        self.__text_bkg.draw()
             # During playback, show time remaining (M:SS), not the photo slide countdown.
             if (not self.__disable_progress_overlays and self.__show_progress_bar
                     and self.__first_real_image_shown and self.__video_show_progress
@@ -894,8 +997,15 @@ class ViewerDisplay:
                     new_sfg, self.__last_frame_tex = textures
                 else:
                     new_sfg = None
+                # Create video text overlays
+                if self.__video_metadata is not None:
+                    self.__make_video_text(self.__video_metadata)
+                    self.__video_text_start_tm = tm
+                    self.__video_text_end_tm = tm + self.__show_video_text_tm
             else:  # normal image or image pair
                 self.__video_path = None
+                self.__video_metadata = None
+                self.__video_textblocks = [None, None]
                 new_sfg = self.__tex_load(pics, (self.__display.width, self.__display.height))
             tm = time.time()
             self.__next_tm = tm + (self.__video_duration if self.__video_duration is not None else time_delay)
@@ -1056,6 +1166,9 @@ class ViewerDisplay:
         if self.__video_streamer is not None:
             self.__video_streamer.stop()
         self.__video_start_tm = None
+        self.__video_metadata = None
+        self.__video_text_start_tm = None
+        self.__video_text_end_tm = None
 
     def is_video_playing(self) -> bool:
         """

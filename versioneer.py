@@ -1824,7 +1824,7 @@ def get_cmdclass(cmdclass=None):
     cmds = {} if cmdclass is None else cmdclass.copy()
 
     # we add "version" to setuptools
-    from setuptools import Command
+    from setuptools import Command  # type: ignore
 
     class cmd_version(Command):
         description = "report generated version string"
@@ -1869,7 +1869,7 @@ def get_cmdclass(cmdclass=None):
     if 'build_py' in cmds:
         _build_py = cmds['build_py']
     else:
-        from setuptools.command.build_py import build_py as _build_py
+        from setuptools.command.build_py import build_py as _build_py  # type: ignore
 
     class cmd_build_py(_build_py):
         def run(self):
@@ -1893,7 +1893,7 @@ def get_cmdclass(cmdclass=None):
     if 'build_ext' in cmds:
         _build_ext = cmds['build_ext']
     else:
-        from setuptools.command.build_ext import build_ext as _build_ext
+        from setuptools.command.build_ext import build_ext as _build_ext  # type: ignore
 
     class cmd_build_ext(_build_ext):
         def run(self):
@@ -1923,7 +1923,7 @@ def get_cmdclass(cmdclass=None):
     cmds["build_ext"] = cmd_build_ext
 
     if "cx_Freeze" in sys.modules:  # cx_freeze enabled?
-        from cx_Freeze.dist import build_exe as _build_exe
+        from cx_Freeze.dist import build_exe as _build_exe  # type: ignore
         # nczeczulin reports that py2exe won't like the pep440-style string
         # as FILEVERSION, but it can be used for PRODUCTVERSION, e.g.
         # setup(console=[{
@@ -1956,9 +1956,9 @@ def get_cmdclass(cmdclass=None):
 
     if 'py2exe' in sys.modules:  # py2exe enabled?
         try:
-            from py2exe.setuptools_buildexe import py2exe as _py2exe
+            from py2exe.setuptools_buildexe import py2exe as _py2exe  # type: ignore
         except ImportError:
-            from py2exe.distutils_buildexe import py2exe as _py2exe
+            from py2exe.distutils_buildexe import py2exe as _py2exe  # type: ignore
 
         class cmd_py2exe(_py2exe):
             def run(self):
@@ -1986,7 +1986,7 @@ def get_cmdclass(cmdclass=None):
     if 'egg_info' in cmds:
         _egg_info = cmds['egg_info']
     else:
-        from setuptools.command.egg_info import egg_info as _egg_info
+        from setuptools.command.egg_info import egg_info as _egg_info  # type: ignore
 
     class cmd_egg_info(_egg_info):
         def find_sources(self):
@@ -2023,7 +2023,7 @@ def get_cmdclass(cmdclass=None):
     if 'sdist' in cmds:
         _sdist = cmds['sdist']
     else:
-        from setuptools.command.sdist import sdist as _sdist
+        from setuptools.command.sdist import sdist as _sdist  # type: ignore
 
     class cmd_sdist(_sdist):
         def run(self):

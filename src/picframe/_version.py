@@ -15,6 +15,7 @@ import os
 import re
 import subprocess
 import sys
+from typing import Dict
 
 
 def get_keywords():
@@ -52,7 +53,7 @@ class NotThisMethod(Exception):
     """Exception raised if a method is not valid for the current scenario."""
 
 
-LONG_VERSION_PY = {}
+LONG_VERSION_PY: Dict[str, str] = {}
 HANDLERS = {}
 
 

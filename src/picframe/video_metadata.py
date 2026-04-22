@@ -54,6 +54,7 @@ class VideoMetadata:
     sample_aspect_ratio: str
     duration: float
     rotation: int
+    fname: str
     title: Optional[str] = None
     caption: Optional[str] = None
     creation_date: Optional[datetime] = None

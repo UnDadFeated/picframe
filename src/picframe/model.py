@@ -1,4 +1,4 @@
-import yaml
+import yaml  # type: ignore
 import os
 import shutil
 import time
@@ -37,6 +37,8 @@ DEFAULT_CONFIG = {
         'video_volume': 0,                   # video volume 0-100 (set to 0 to mute)
         'video_progress_show': True,          # M:SS time remaining overlay while video plays
         'video_play_immediately': True,       # True after fade-in; False waits for show_text_tm too
+        'show_video_text': "name",            # video text fields to show (similar to show_text for photos)
+        'show_video_text_tm': 20.0,           # video text show time (sec)
         'slide_progress_show': True,          # slide countdown for photos (not during video)
         'slide_progress_font_size': 11,        # slide countdown text font size
         'show_cache_indicator': True,          # show cache building indicator on startup

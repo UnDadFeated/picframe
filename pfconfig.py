@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import curses
-import yaml
+import yaml  # type: ignore
 import os
 import re
 import sys
@@ -51,6 +51,7 @@ SLIDERS = {
     'video_quarantine_days': (0, 365),
     'photo_quarantine_days': (0, 365),
     'video_volume': (0, 100),
+    'show_video_text_tm': (0.0, 60.0),
     'display_x': (0, 1920),
     'display_y': (0, 1080),
     'display_w': (320, 3840),
@@ -239,6 +240,8 @@ FRIENDLY_NAMES = {
     "viewer.photo_quarantine_days": "Photo Cooldown Days",
     "viewer.video_fit_display": "Stretch Video To Display",
     "viewer.video_volume": "Video Volume",
+    "viewer.show_video_text": "Video Text Fields To Show",
+    "viewer.show_video_text_tm": "Video Text Show Time (sec)",
     "viewer.font_file": "Font File Path",
     "viewer.shader": "Shader Path",
     "viewer.log_level": "Viewer Log Level",
@@ -365,6 +368,8 @@ MENU_STRUCTURE = {
         "viewer.video_volume",
         "viewer.video_progress_show",
         "viewer.video_play_immediately",
+        "viewer.show_video_text",
+        "viewer.show_video_text_tm",
     ],
     "MQTT": [
         "mqtt.device_id",
