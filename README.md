@@ -216,6 +216,9 @@ model:
   pic_dir: "/mnt/nas"                      # your photo/video folder (NAS mount)
   subdirectory: ""                          # subfolder if needed
   
+  # Auto-update / Auto-run
+  autorun_enabled: True                  # enable auto-start on login
+
 http:
   use_http: True
   port: 9000                               # web UI port
