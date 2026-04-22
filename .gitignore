@@ -1,4 +1,6 @@
 configuration.yaml
+test_file
+test_sqlite.py
 oldcode/
 docs/diagrams/out/
 
