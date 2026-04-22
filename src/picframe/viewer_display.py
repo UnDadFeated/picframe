@@ -33,6 +33,16 @@ def parse_show_text(txt):
     return show_text
 
 
+def format_time_remaining(seconds: float) -> str:
+    """Format remaining playback seconds as H:MM:SS or M:SS for video overlay."""
+    total = int(max(0, round(seconds)))
+    hours, rem = divmod(total, 3600)
+    minutes, secs = divmod(rem, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes}:{secs:02d}"
+
+
 class ViewerDisplay:
 
     def __init__(self, config):
@@ -571,7 +581,7 @@ class ViewerDisplay:
     def __draw_clock(self):
         current_time = datetime.now().strftime(self.__clock_format)
 
-        # --- Only rebuild the FixedString containing the time valud if the time string has changed.
+        # --- Only rebuild the FixedString containing the time value if the time string has changed.
         #     With the default H:M display, this will only rebuild once each minute. Note however,
         #     time strings containing a "seconds" component will rebuild once per second.
         if current_time != self.__prev_clock_time:
@@ -633,12 +643,15 @@ class ViewerDisplay:
             self.__image_overlay.draw()
 
     def __draw_progress_bar(self, time_left: float, total_time: float,
-                            countdown: int = None, position: str = "bottom-right"):
-        """Draw the slide-change countdown text (e.g. '3s'). Cache progress is
-        handled separately by __draw_cache_indicator."""
+                            countdown: int = None, position: str = "bottom-right",
+                            overlay_text: Optional[str] = None):
+        """Draw slide-change countdown (e.g. '3s') or custom overlay_text (e.g. video M:SS).
+
+        Cache progress is handled separately by __draw_cache_indicator.
+        """
         if self.__disable_progress_overlays:
             return
-        if countdown is None:
+        if countdown is None and overlay_text is None:
             return
         margin = 90          # pixels from edge
         bar_width = 150      # retained as a positioning reference for the text offset
@@ -650,13 +663,18 @@ class ViewerDisplay:
             y_pos = (self.__display.height // 2) - margin - bar_height // 2 + self.__slide_progress_y_offset
         else:
             x_pos += self.__cache_progress_x_offset
-        countdown_text = f"{countdown}s"
+        if overlay_text is not None:
+            countdown_text = overlay_text
+            text_width = 220
+        else:
+            countdown_text = f"{countdown}s"
+            text_width = 60
         self.__progress_countdown = pi3d.FixedString(
             self.__font_file, countdown_text,
             font_size=self.__slide_progress_font_size,
             shader=self.__flat_shader,
             justify="L",
-            width=60,
+            width=text_width,
             color=(255, 255, 255, int(200 * self.get_brightness()))
         )
         self.__progress_countdown.sprite.position(x_pos + bar_width // 2 + 16, y_pos, 3.6)
@@ -842,7 +860,27 @@ class ViewerDisplay:
                 self.__last_frame_tex = None
                 self.__slide.set_textures([self.__sfg, self.__sbg])
             self.__slide.draw()
-            return (loop_running, False, video_playing)  # now returns tuple with skip image flag and video_time added
+            self.__draw_overlay()
+            if self.clock_is_on:
+                self.__draw_clock()
+            # During playback, show time remaining (M:SS), not the photo slide countdown.
+            if (not self.__disable_progress_overlays and self.__show_progress_bar
+                    and self.__first_real_image_shown and self.__video_show_progress
+                    and self.__video_duration is not None):
+                try:
+                    elapsed = max(0.0, tm - self.__video_start_tm)
+                    left = max(0.0, self.__video_duration - elapsed)
+                    self.__draw_progress_bar(
+                        left,
+                        max(0.1, self.__video_duration),
+                        countdown=max(1, int(left + 0.999)),
+                        position=self.__slide_progress_position,
+                        overlay_text=format_time_remaining(left),
+                    )
+                except Exception as e:
+                    self.__logger.warning("Video time overlay draw error; retrying next frame")
+                    self.__logger.warning("Cause: %s", e)
+            return (loop_running, False, video_playing)
 
         if pics is not None:
             self.stop_video()
@@ -909,32 +947,35 @@ class ViewerDisplay:
             self.__slide.unif[48] = self.__slide.unif[48] * 0.95 + self.__xstep * t_factor * 0.05
             self.__slide.unif[49] = self.__slide.unif[49] * 0.95 + self.__ystep * t_factor * 0.05
 
-        if self.__alpha < 1.0:  # transition is happening
+        fading_in = self.__alpha < 1.0
+        if fading_in:  # fade-in transition for the new slide
             self.__alpha += self.__delta_alpha
             if self.__alpha > 1.0:
                 self.__alpha = 1.0
             self.__slide.unif[44] = self.__alpha * self.__alpha * (3.0 - 2.0 * self.__alpha)
 
-        if (self.__next_tm - tm) < 5.0 or self.__alpha < 1.0:
-            self.__in_transition = True  # set __in_transition True a few seconds *before* end of previous slide
-        else:  # no transition effect safe to update database, resuffle etc
-            self.__in_transition = False
-            can_start_video = self.__video_path is not None and (
-                self.__video_play_immediately or tm > self.__name_tm
-            )
-            if can_start_video:
-                # start video stream
-                if self.__video_streamer is None or not self.__video_streamer.player_alive():
-                    self.__video_streamer = VideoStreamer(
-                        self.__display_x, self.__display_y,
-                        self.__display.width, self.__display.height,
-                        self.__video_path, fit_display=self.__video_fit_display,
-                        volume=self.__video_volume
-                    )
-                else:
-                    self.__video_streamer.play(self.__video_path)
-                self.__video_start_tm = tm
-                self.__video_path = None
+        # True during fade-in or in the last seconds before the slide ends (controller bookkeeping).
+        self.__in_transition = fading_in or (self.__next_tm - tm) < 5.0
+
+        # Start external video only after fade-in completes (fading_in is False).
+        # Decouple from __in_transition so short clips (duration < 5s) still start reliably.
+        can_start_video = (
+            self.__video_path is not None
+            and not fading_in
+            and (self.__video_play_immediately or tm > self.__name_tm)
+        )
+        if can_start_video:
+            if self.__video_streamer is None or not self.__video_streamer.player_alive():
+                self.__video_streamer = VideoStreamer(
+                    self.__display_x, self.__display_y,
+                    self.__display.width, self.__display.height,
+                    self.__video_path, fit_display=self.__video_fit_display,
+                    volume=self.__video_volume
+                )
+            else:
+                self.__video_streamer.play(self.__video_path)
+            self.__video_start_tm = tm
+            self.__video_path = None
 
         skip_image = False  # can add possible reasons to skip image below here
 
@@ -977,22 +1018,20 @@ class ViewerDisplay:
                 self.__logger.warning("Cache overlay draw error; retrying next frame")
                 self.__logger.warning("Cause: %s", e)
         
-        # Draw slide-change countdown text
+        # Draw slide-change countdown text (photos only; video shows M:SS while playing).
         if not self.__disable_progress_overlays and self.__show_progress_bar and self.__first_real_image_shown:
             countdown_left = None
             countdown_total = None
-            if self.is_video_playing() and self.__video_show_progress and self.__video_duration is not None:
-                if self.__video_start_tm is None:
-                    self.__video_start_tm = tm
-                elapsed = max(0.0, tm - self.__video_start_tm)
-                countdown_left = max(0.0, self.__video_duration - elapsed)
-                countdown_total = max(0.1, self.__video_duration)
-            else:
+            if self.__video_path is None:
                 countdown_window_start = self.__next_tm - time_delay + 1.0
                 countdown_window_end = self.__next_tm - fade_time - 1.0
                 if countdown_window_start <= tm <= countdown_window_end:
                     countdown_left = max(0.0, countdown_window_end - tm)
                     countdown_total = max(0.1, countdown_window_end - countdown_window_start)
+            # Video slide: first-frame hold before stream starts — hide slide-style countdown.
+            else:
+                countdown_left = None
+                countdown_total = None
             if countdown_left is not None and countdown_total is not None:
                 try:
                     self.__draw_progress_bar(
