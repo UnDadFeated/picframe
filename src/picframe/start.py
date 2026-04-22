@@ -227,7 +227,7 @@ def main():
     setup_logging(log_level, log_max_days)
 
 startup_logger = logging.getLogger("start.py")
-    updater_config = m.get_viewer_config().get('updater', {}) if hasattr(m, 'get_viewer_config') else {}
+updater_config = m.get_viewer_config().get('updater', {}) if hasattr(m, 'get_viewer_config') else {}
     did_update = run_startup_auto_update(updater_config, startup_logger)
     if did_update and updater_config.get('restart_after_update', True):
         startup_logger.warning("Restarting picframe after auto-update - gracefully shutting down")
