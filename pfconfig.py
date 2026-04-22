@@ -492,6 +492,51 @@ def update_yaml_field(yaml_text, keys_path, new_val):
                 return '\n'.join(lines)
     return yaml_text
 
+
+def append_yaml_section(yaml_text, section_name, section_indent, section_data):
+    """Appends a new top-level section to YAML text if it does not exist."""
+    indent = " " * section_indent
+    lines = []
+    lines.append(f"{section_name}:")
+    for key, val in section_data.items():
+        if isinstance(val, bool):
+            val_str = 'True' if val else 'False'
+        elif val is None:
+            val_str = 'null'
+        elif isinstance(val, (int, float)):
+            val_str = str(val)
+        elif isinstance(val, str):
+            if val == '' or val.lower() in ('null', 'none'):
+                val_str = '""' if val == '' else val
+            else:
+                val_str = f'"{val}"' if not val.startswith('[') else str(val)
+        else:
+            val_str = str(val)
+        lines.append(f'{indent}  {key}: {val_str}')
+    
+    new_section = chr(10).join(lines)
+    
+    # Find the last occurrence of a top-level key (no indentation) to insert before it
+    # or insert at the end
+    last_top_key = None
+    for i, line in enumerate(yaml_text.split(chr(10))):
+        if line and not line.startswith(' ') and not line.startswith('#') and ':' in line:
+            last_top_key = i
+    
+    if last_top_key is not None:
+        lines_before = yaml_text.split(chr(10))[:last_top_key+1]
+        lines_before.append('')  # Add blank line separator
+        lines_before.append(new_section)
+        lines_before.extend(yaml_text.split(chr(10))[last_top_key+1:])
+        return chr(10).join(lines_before)
+    else:
+        # No existing keys, just append at end
+        if yaml_text.endswith(chr(10)):
+            return yaml_text + new_section
+        else:
+            return yaml_text + chr(10) + new_section
+
+
 def flatten_keys(d, parent_key=[]):
     items = []
     for k, v in d.items():
@@ -600,6 +645,8 @@ class App:
                 if len(parts) == 2:
                     section, key = parts
                     if section not in self.data:
+                        self.data[section] = {}
+                    elif self.data[section] is None:
                         self.data[section] = {}
                     if key not in self.data[section]:
                         # Use defaults if available, otherwise None
@@ -720,19 +767,36 @@ class App:
         return self.data != self.original_data
 
     def save_changes(self):
+        # Identify original top-level sections
+        orig_top_sections = set(self.original_data.keys())
+        
+        # Identify new top-level sections in current data
+        new_top_sections = set()
+        for key in self.data.keys():
+            if key not in orig_top_sections:
+                new_top_sections.add(key)
+        
+        # Track sections that need updating
         flat_items = flatten_keys(self.data, [])
         orig_items = {tuple(k): v for k, v in flatten_keys(self.original_data, [])}
         
+        # Apply changes to existing sections
         for keys_path, v in flat_items:
             orig_v = orig_items.get(tuple(keys_path))
-            if orig_v != v:
+            if orig_v != v and keys_path[0] in orig_top_sections:
                 self.yaml_text = update_yaml_field(self.yaml_text, keys_path, v)
+        
+        # Append new top-level sections
+        for section_name in new_top_sections:
+            section_indent = 0
+            section_data = self.data.get(section_name, {})
+            self.yaml_text = append_yaml_section(self.yaml_text, section_name, section_indent, section_data)
         
         with open(self.path, 'w') as f:
             f.write(self.yaml_text)
         self.original_data = copy.deepcopy(self.data)
         self.unsaved_changes = False
-        self.draw_message("Changes saved successfully!", wait=True)
+        self.draw_message('Changes saved successfully!', wait=True)
 
     def draw_footer_bar(self, h, w, status_text):
         # Draw status info
