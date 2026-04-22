@@ -32,6 +32,15 @@ class VideoMetadata:
         rating (Optional[Any]): The rating of the video, if available.
         lens (Optional[str]): The lens used to record the video, if available.
         tags (Optional[Any]): Tags or keywords associated with the video.
+        white_balance (Optional[str]): The white balance setting of the camera.
+        flash (Optional[Any]): The flash status during recording.
+        metering_mode (Optional[str]): The metering mode of the camera.
+        exposure_mode (Optional[str]): The exposure mode of the camera.
+        software (Optional[str]): The software used to edit or encode the video.
+        artist (Optional[str]): The artist who recorded the video.
+        copyright (Optional[str]): Copyright information for the video.
+        lens_make (Optional[str]): The make of the lens used.
+        lens_model (Optional[str]): The model of the lens used.
 
     Properties:
         is_portrait (bool): Indicates whether the video is in portrait orientation.
@@ -59,6 +68,15 @@ class VideoMetadata:
     rating: Optional[Any] = None
     lens: Optional[str] = None
     tags: Optional[Any] = None
+    white_balance: Optional[str] = None
+    flash: Optional[Any] = None
+    metering_mode: Optional[str] = None
+    exposure_mode: Optional[str] = None
+    software: Optional[str] = None
+    artist: Optional[str] = None
+    copyright: Optional[str] = None
+    lens_make: Optional[str] = None
+    lens_model: Optional[str] = None
 
     @property
     def is_portrait(self) -> bool:
@@ -76,3 +94,4 @@ class VideoMetadata:
     def exif_datetime(self) -> Optional[float]:
         """Returns the creation date as Unix timestamp for compatibility with image metadata."""
         return self.creation_date.timestamp() if self.creation_date else None
+
