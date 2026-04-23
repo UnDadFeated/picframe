@@ -1,4 +1,4 @@
-# Picframe v1.2.2 — Digital picture frame for Raspberry Pi
+# Picframe v1.2.3 — Digital picture frame for Raspberry Pi
 
 A feature-rich digital picture frame application for Raspberry Pi using pi3d, with video support, smart caching, MQTT integration, auto-update, and a modern web interface.
 
@@ -34,6 +34,11 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 - MQTT integration with Home Assistant
 
 ---
+
+## Release v1.2.3
+
+- **Fixed boolean value handling in pfconfig.py TUI**: Normalized YAML boolean values to lowercase `true`/`false` standard for consistent saving and loading of boolean configuration options
+- **Removed configuration_example.yaml**: Simplified config distribution by removing the example file
 
 ## Release v1.2.2
 

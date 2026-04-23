@@ -480,7 +480,7 @@ def update_yaml_field(yaml_text, keys_path, new_val):
                 comment = ' #' + parts[1] if len(parts) > 1 else ''
                 
                 if isinstance(new_val, bool):
-                    v_str = 'True' if new_val else 'False'
+                    v_str = 'true' if new_val else 'false'
                 elif new_val is None:
                     v_str = 'null'
                 elif isinstance(new_val, (int, float)):
@@ -505,7 +505,7 @@ def append_yaml_section(yaml_text, section_name, section_indent, section_data):
     lines.append(f"{section_name}:")
     for key, val in section_data.items():
         if isinstance(val, bool):
-            val_str = 'True' if val else 'False'
+            val_str = 'true' if val else 'false'
         elif val is None:
             val_str = 'null'
         elif isinstance(val, (int, float)):
