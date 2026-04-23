@@ -3,6 +3,17 @@ test_file
 test_sqlite.py
 oldcode/
 docs/diagrams/out/
+tmp/
+
+# Sensitive files
+*.pem
+*.key
+*.crt
+passwd
+password
+*.pwd
+*.secret
+*.credentials
 
 #ide settings
 .vscode/
@@ -141,4 +152,7 @@ dmypy.json
 .pyre/
 
 #mac os
-.DS_Storepfconfig.py
+.DS_Store
+
+# Local picframe config
+picframe/configuration.yaml
