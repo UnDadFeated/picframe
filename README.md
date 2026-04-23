@@ -100,10 +100,10 @@ After reboot, configure Picframe:
    nano ~/picframe_data/config/configuration.yaml
    ```
    Or use the TUI:
-   ```bash
-   cd /home/pi/picframe
-   ./pfconfig.sh
-   ```
+    ```bash
+    cd /home/pi/picframe
+    src/picframe/config/pfconfig.sh
+    ```
 
 2. **Set your media directory** in `model.pic_dir` (e.g., `/mnt/nas` for NAS-mounted photos/videos)
 
