@@ -1,4 +1,4 @@
-#!/bin/bash
+nd i#!/bin/bash
 # =============================================================================
 # Picframe One-Click Installer for Raspberry Pi OS Bookworm Lite
 # =============================================================================
@@ -263,12 +263,15 @@ if [ "$LAST_COMPLETED_STEP" -lt 7 ]; then
 
     cat > /home/pi/start_picframe.sh <<'EOF'
 #!/bin/bash
+# Wait for NAS/network to be ready (5 second delay)
+sleep 5
 # Activate Picframe virtual environment and start the frame
 source /home/pi/venv_picframe/bin/activate
-picframe &
+cd /home/pi/picframe
+picframe
 EOF
     chmod +x /home/pi/start_picframe.sh
-    log_message "Autostart script created: /home/pi/start_picframe.sh"
+    log_message "Autostart script created with 5-second mount delay: /home/pi/start_picframe.sh"
     update_progress 7
 fi
 
@@ -276,10 +279,11 @@ fi
 if [ "$LAST_COMPLETED_STEP" -lt 8 ]; then
     log_message "=== Step 8: Configuring labwc autostart ==="
 
-    # labwc autostart
+    # labwc autostart (with 5-second delay for NAS mount)
     mkdir -p /home/pi/.config/labwc
     cat > /home/pi/.config/labwc/autostart <<'EOF'
-/home/pi/start_picframe.sh
+# Wait for NAS to be mounted before starting picframe
+exec bash -c 'sleep 5 && /home/pi/start_picframe.sh'
 EOF
 
     # labwc rc.xml — remove window decorations for picframe
@@ -335,8 +339,7 @@ WorkingDirectory=/home/pi
 Restart=on-failure
 RestartSec=5
 # 5-second delay before starting to ensure NAS is mounted
-ExecStartPre=/bin/sleep 5
-ExecStart=/home/pi/venv_picframe/bin/picframe
+ExecStart=/bin/bash -c 'sleep 5 && /home/pi/venv_picframe/bin/picframe'
 
 [Install]
 WantedBy=multi-user.target

@@ -1,4 +1,4 @@
-# Picframe v1.2.0 — Digital picture frame for Raspberry Pi
+# Picframe v1.2.1 — Digital picture frame for Raspberry Pi
 
 A feature-rich digital picture frame application for Raspberry Pi using pi3d, with video support, smart caching, MQTT integration, auto-update, and a modern web interface.
 
@@ -11,11 +11,13 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 - Choice selectors with `< Left/Right >`, plus per-setting `[R]` revert
 - Run locally using: `./pfconfig.sh`
 
-### Auto-Update
+### Auto-Update & Deployment
 - Configure automatic updates on startup from your GitHub fork
 - Works with pip-installed versions (no local git repo needed)
 - Enable via `pfconfig` menu: `Updates` → `Auto Update On Start`
 - Point to your fork's branch and URL for seamless updates
+- Use `tmp/deploy_picframe.sh` for one-click local-to-Pi deployment
+- Use `tmp/update_picframe.sh` for remote-only updates (runs on Pi)
 
 ### Playback & Caching
 - Photo + video support with AV1 playback
@@ -35,14 +37,17 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 
 ---
 
-## Release v1.2.0
+## Release v1.2.1
 
-- Updated install_picframe.sh with 5-second mount delay and RequiresMountsFor support
-- Created deploy_picframe.sh and update_picframe.sh for streamlined deployment
-- Improved .gitignore to exclude sensitive files and local config
-- Version bumped to 1.2.0
+- **Auto-Update Config Fix**: Added missing `auto_update_on_start` / `auto_update_branch` / `auto_update_repo_url` settings to configuration submenus (Directories & Filters, Updates, and General menus) with proper defaults (`False` / `main` / empty)
+- **Web UI**: Added auto-update config to the general config section and config template
+- **Web UI Reset Fix**: Fixed HTML `onclick` handlers to properly call `resetConfigDefaults()` and `updateConfigFromForm()` without argument passing
+- **Web UI Form Fix**: Replaced inline event handlers in label elements and fixed select onchange handler in config form
+- **Config JSON Fix**: Added missing `auto_update_on_start`, `auto_update_branch`, `auto_update_repo_url` to exported config JSON in `get_config` and `save_config` endpoints
+- **Version bumped to 1.2.1**
 
-Refer to the `CHANGELOG.md` or Git history for the full set of changes.
+Refer to the Git history for the full set of changes.
+
 
 
 ## Important: Smart Cache Filename Requirement
