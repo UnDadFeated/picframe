@@ -1,4 +1,4 @@
-# Picframe v1.1.1 — Digital picture frame for Raspberry Pi
+# Picframe v1.2.0 — Digital picture frame for Raspberry Pi
 
 A feature-rich digital picture frame application for Raspberry Pi using pi3d, with video support, smart caching, MQTT integration, auto-update, and a modern web interface.
 
@@ -35,11 +35,12 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 
 ---
 
-## Release v1.1.1
+## Release v1.2.0
 
-- Add video overlay functionality: configurable on-screen video text (filename, duration, title, etc.) during playback.
-- Fixes and improvements: type-hinting and packaging fixes, video metadata handling, improved viewer display logic.
-- Updated packaging and `versioneer` helpers; bumped packaged version to `1.0.9` (editable install builds `picframe-1.0.9-0.editable`).
+- Updated install_picframe.sh with 5-second mount delay and RequiresMountsFor support
+- Created deploy_picframe.sh and update_picframe.sh for streamlined deployment
+- Improved .gitignore to exclude sensitive files and local config
+- Version bumped to 1.2.0
 
 Refer to the `CHANGELOG.md` or Git history for the full set of changes.
 
@@ -79,7 +80,7 @@ Refer to the `CHANGELOG.md` or Git history for the full set of changes.
 # SSH into your Pi as 'pi'
 sudo apt-get update && sudo apt-get install -y git
 
-# Clone and run installer
+# Clone and run installer (uses main branch from your fork)
 cd /home/pi
 git clone -b main https://github.com/UnDadFeated/picframe.git
 cd picframe
@@ -106,8 +107,8 @@ The installer will:
 sudo apt-get update
 sudo apt-get install -y python3-venv python3-pip ffmpeg vlc libatlas-base-dev libopenjp2-7 libpng16-16 libjpeg-dev libavcodec-extra
 
-# Clone repository
-git clone -b dev https://github.com/UnDadFeated/picframe.git
+# Clone repository (main branch from your fork)
+git clone -b main https://github.com/UnDadFeated/picframe.git
 cd picframe
 
 # Create virtual environment
@@ -288,7 +289,7 @@ MIT License - same as upstream [helgeerbe/picframe](https://github.com/helgeerbe
 
 ## Links
 
-The canonical GitHub repository name is **`picframe`** (for example `UnDadFeated/picframe`). An older checkout or umbrella label **Picframe2** referred to the same project and should no longer be used for new clones, remotes, or documentation.
+The canonical GitHub repository name is **`picframe`** (for example `UnDadFeated/picframe`).
 
 - Original project: https://github.com/helgeerbe/picframe
 - This fork: https://github.com/UnDadFeated/picframe
