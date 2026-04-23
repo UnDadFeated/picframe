@@ -9,7 +9,7 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 - 18 intuitive workflow groups for fast scanning
 - Intuitive choice selectors - see actual option names instead of numbers
 - Choice selectors with `< Left/Right >`, plus per-setting `[R]` revert
-- Run locally using: `./pfconfig.sh` or remotely via `ssh pi@<pi-hostname> "python3 ~/picframe_data/config/pfconfig.py"`
+- Run locally from `~/picframe_data/config/` using: `python3 pfconfig.py` or remotely via `ssh pi@<pi-hostname> "python3 ~/picframe_data/config/pfconfig.py"`
 
 ### Auto-Update & Deployment
 - Configure automatic updates on startup from your GitHub fork
