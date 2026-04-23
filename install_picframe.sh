@@ -202,6 +202,9 @@ if [ "$LAST_COMPLETED_STEP" -lt 5 ]; then
     log_message "Initializing Picframe with default directories..."
     if (echo -e "\n\n\n" | su - pi -c "/home/pi/venv_picframe/bin/picframe -i /home/pi/" 2>&1 | tee -a "$LOG_FILE"); then
         log_message "Picframe initialized with default directories."
+        # Copy generated configuration.yaml from old location to new config/ directory
+        su - pi -c "cp /home/pi/picframe_data/config/configuration.yaml /home/pi/picframe_src/picframe/config/" 2>&1 | tee -a "$LOG_FILE"
+        log_message "Configuration copied to picframe/config/ directory."
         update_progress 5
     else
         log_message "Error: Failed to initialize Picframe."
