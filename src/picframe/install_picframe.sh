@@ -313,10 +313,51 @@ EOF
     needs_reboot 8
 fi
 
+# ---------- Step 9: Create system-level picframe.service with boot delay ----------
+if [ "$LAST_COMPLETED_STEP" -lt 9 ]; then
+    log_message "== Step 9: Creating system-level picframe.service with 5-second boot delay ==="
+
+    SYSTEM_SERVICE_FILE="/etc/systemd/system/picframe.service"
+
+    cat > "$SYSTEM_SERVICE_FILE" <<'EOF'
+[Unit]
+Description=Picframe slideshow
+After=network-online.target local-fs.target
+Wants=network-online.target
+# Wait for NAS mount point
+RequiresMountsFor=/mnt/nas
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi
+Restart=on-failure
+RestartSec=5
+# 5-second delay before starting to ensure NAS is mounted
+ExecStartPre=/bin/sleep 5
+ExecStart=/home/pi/venv_picframe/bin/picframe
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Enable and start the system-level service
+    sudo systemctl daemon-reload
+    sudo systemctl enable picframe.service
+    sudo systemctl restart picframe
+
+    # Disable the old user-level labwc service
+    systemctl --user disable picframe.service 2>/dev/null
+
+    log_message "System-level picframe.service created with 5-second boot delay and NAS mount dependency."
+    update_progress 9
+fi
+
 # ---------- Final: Cleanup ----------
-if [ "$LAST_COMPLETED_STEP" -ge 8 ]; then
+if [ "$LAST_COMPLETED_STEP" -ge 9 ]; then
     remove_systemd_service
-    log_message "=== Installation completed successfully! ==="
+    log_message "== Installation completed successfully! ==="
     log_message "Rebooting to finalize..."
     sudo reboot
     exit 0
