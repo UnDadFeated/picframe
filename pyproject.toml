@@ -63,9 +63,7 @@ where = ["src"]
 
 
 [tool.setuptools.package-data]
-"picframe.data" = ["**"]
-"picframe.config" = ["**"]
-"picframe.html" = ["**"]
+picframe = ["**/*"]
 
 [tool.setuptools.dynamic]
 version = {attr = "picframe.__version__"}
