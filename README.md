@@ -1,4 +1,4 @@
-# Picframe v1.2.1 — Digital picture frame for Raspberry Pi
+# Picframe v1.2.2 — Digital picture frame for Raspberry Pi
 
 A feature-rich digital picture frame application for Raspberry Pi using pi3d, with video support, smart caching, MQTT integration, auto-update, and a modern web interface.
 
@@ -37,14 +37,10 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 
 ---
 
-## Release v1.2.1
+## Release v1.2.2
 
-- **Auto-Update Config Fix**: Added missing `auto_update_on_start` / `auto_update_branch` / `auto_update_repo_url` settings to configuration submenus (Directories & Filters, Updates, and General menus) with proper defaults (`False` / `main` / empty)
-- **Web UI**: Added auto-update config to the general config section and config template
-- **Web UI Reset Fix**: Fixed HTML `onclick` handlers to properly call `resetConfigDefaults()` and `updateConfigFromForm()` without argument passing
-- **Web UI Form Fix**: Replaced inline event handlers in label elements and fixed select onchange handler in config form
-- **Config JSON Fix**: Added missing `auto_update_on_start`, `auto_update_branch`, `auto_update_repo_url` to exported config JSON in `get_config` and `save_config` endpoints
-- **Version bumped to 1.2.1**
+- **Configuration Reorganization**: Moved `configuration.yaml` from `~/picframe_data/config/` to `~/picframe_src/picframe/config/` directory
+- **Version bumped to 1.2.2**
 
 Refer to the Git history for the full set of changes.
 
