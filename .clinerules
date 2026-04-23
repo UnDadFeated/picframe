@@ -18,4 +18,3 @@ AUTONOMOUS WORKFLOW:
    - `git add` the changed files.
    - `git commit -m "feat/fix/refactor: description"`
    - `git push` to the active upstream branch.
-5. Deployment & Idempotency: Autonomously write scripts locally, SCP them to the Pi, and execute them via non-interactive SSH. All remote scripts/configs MUST be idempotent (safe to run multiple times without duplication).

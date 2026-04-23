@@ -9,7 +9,7 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 - 18 intuitive workflow groups for fast scanning
 - Intuitive choice selectors - see actual option names instead of numbers
 - Choice selectors with `< Left/Right >`, plus per-setting `[R]` revert
-- Run locally using: `./pfconfig.sh`
+- Run locally using: `./pfconfig.sh` or remotely via `ssh pi@192.168.4.110 "python3 /home/pi/picframe/src/picframe/pfconfig.py"`
 
 ### Auto-Update & Deployment
 - Configure automatic updates on startup from your GitHub fork
@@ -48,16 +48,16 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 
 Refer to the Git history for the full set of changes.
 
-
+---
 
 ## Important: Smart Cache Filename Requirement
 
 > **Smart cache requires media files to be named with `YYYY-MM-DD_` prefix!**
-> 
+>
 > When `enable_smart_cache: True` is enabled in your configuration, only files matching the pattern `YYYY-MM-DD_*.jpg`, `YYYY-MM-DD_*.mp4`, etc. will be added to the database. Files without this prefix are skipped during the cache build.
-> 
+>
 > This is intentional for seasonal/curated media management - files from past years (e.g., `2009-04-15_vacation.jpg`) will match the current date window (±15 days by default) across any year, allowing you to display content from previous years without storing all files in the database.
-> 
+>
 > Example valid filenames:
 > - `2024-12-25_christmas.jpg`
 > - `2009-04-15_easter_egg_hunt.mp4`
@@ -65,128 +65,81 @@ Refer to the Git history for the full set of changes.
 
 ---
 
-## Features
-
-- **Photo & Video Support** - JPEG, PNG, HEIC, and videos (MP4, MKV, MOV, AV1, WebM)
-- **Smart Caching** - Year-agnostic date filtering with automatic midnight refresh
-- **Modern Web UI** - Dark-themed control panel at `http://<pi-ip>:9000`
-- **Automatic Refresh** - Midnight timezone-aware cache refresh without restart
-- **EXIF Orientation** - Automatic rotation handling for photos and videos
-- **Display Power Control** - Supports HDMI off/on via wlr-randr, xset, or vcgencmd
-- **MQTT Support** - Remote control integration for Home Assistant
-
----
-
 ## Installation
 
-### Option 1: One-Click Install (Recommended for Raspberry Pi OS Bookworm Lite)
+### Prerequisites
+
+- **Hardware**: Raspberry Pi 3, 4, or 5
+- **OS**: Raspberry Pi OS Bookworm Lite (64-bit recommended)
+- **Network**: Internet access for initial setup
+- **Access**: SSH access as the `pi` user
+
+### One-Step Install (Recommended)
+
+Run this entire block as a single command via SSH into your Pi:
 
 ```bash
-# SSH into your Pi as 'pi'
-sudo apt-get update && sudo apt-get install -y git
-
-# Clone and run installer (uses main branch from your fork)
-cd /home/pi
-git clone -b main https://github.com/UnDadFeated/picframe.git
-cd picframe
-chmod +x install_picframe.sh
-./install_picframe.sh
+curl -sSL https://raw.githubusercontent.com/UnDadFeated/picframe/main/install_picframe.sh | bash -s -- --yes
 ```
 
-The installer will:
-1. Install system dependencies (Python, ffmpeg, VLC, labwc)
-2. Set up Python virtual environment
-3. Install Picframe from this fork
-4. Configure mosquitto (optional MQTT)
-5. Set up labwc compositor autostart
-6. Create startup service
+**What the installer does:**
+1. Installs system dependencies (Python, ffmpeg, VLC, labwc, rclone)
+2. Sets up a Python virtual environment at `/home/pi/picframe/venv`
+3. Installs Picframe from your fork's main branch
+4. Creates configuration directory structure (`~/picframe_data/`)
+5. Sets up labwc compositor autostart
+6. Creates the startup script (`/home/pi/start_picframe.sh`)
 
-**After install:**
-- Start manually: `/home/pi/start_picframe.sh`
-- Auto-start on reboot is configured via labwc autostart
+> ⚠️ **Reboot Required**: After installation completes, reboot your Pi:
+> ```bash
+> sudo reboot
+> ```
 
-### Option 2: Manual Install
+### Post-Install Configuration
+
+After reboot, configure Picframe:
+
+1. **Edit the configuration file**:
+   ```bash
+   nano ~/picframe_data/config/configuration.yaml
+   ```
+   Or use the TUI:
+   ```bash
+   cd /home/pi/picframe
+   ./pfconfig.sh
+   ```
+
+2. **Set your media directory** in `model.pic_dir` (e.g., `/mnt/nas` for NAS-mounted photos/videos)
+
+3. **Start Picframe**:
+   ```bash
+   /home/pi/start_picframe.sh
+   ```
+
+4. **Access the Web UI** at `http://<pi-ip>:9000`
+
+### Google Photos via rclone (Optional)
+
+For mounting Google Photos as a local directory:
 
 ```bash
-# Install dependencies
-sudo apt-get update
-sudo apt-get install -y python3-venv python3-pip ffmpeg vlc libatlas-base-dev libopenjp2-7 libpng16-16 libjpeg-dev libavcodec-extra
-
-# Clone repository (main branch from your fork)
-git clone -b main https://github.com/UnDadFeated/picframe.git
-cd picframe
-
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install package
-pip install .
-
-# Copy and edit configuration
-cp src/picframe/config/configuration_example.yaml ~/picframe_data/config/configuration.yaml
-nano ~/picframe_data/config/configuration.yaml
-```
-
-### Google Photos via rclone (with `pfconfig`)
-
-Use this flow to mount Google Photos and point Picframe at it using the TUI menu.
-
-1. Install and configure rclone on the Pi:
-
-```bash
-sudo apt-get update
+# Install and configure rclone
 sudo apt-get install -y rclone
-rclone config
-```
+rclone config  # Create a Google Photos remote
 
-In `rclone config`, create a remote (example name: `gphotos`) using the Google Photos backend and complete browser auth.
-
-2. Create a local mount point and test access:
-
-```bash
+# Create mount point and mount
 sudo mkdir -p /mnt/gphotos
 sudo chown pi:pi /mnt/gphotos
-rclone ls "gphotos:media/by-day" | head
+rclone mount "gphotos:media/by-day" /mnt/gphotos --vfs-cache-mode full --dir-cache-time 72h &
+
+# In pfconfig, set Media Root Folder to /mnt/gphotos
 ```
-
-3. Mount Google Photos (foreground test):
-
-```bash
-rclone mount "gphotos:media/by-day" /mnt/gphotos --vfs-cache-mode full --dir-cache-time 72h --poll-interval 15m
-```
-
-4. Open `pfconfig` and set paths from the menu:
-
-```bash
-cd /home/pi/picframe
-./pfconfig.sh
-```
-
-In `pfconfig`:
-- Go to `Directories & Filters`
-- Set `Media Root Folder` (`model.pic_dir`) to `/mnt/gphotos`
-- Optionally set `Subdirectory Filter` (`model.subdirectory`) if you want a subset
-- Save with `S`
-
-5. Start Picframe:
-
-```bash
-/home/pi/start_picframe.sh
-```
-
-Notes:
-- Keep smart-cache naming in mind (`YYYY-MM-DD_...`) if `enable_smart_cache` is enabled.
-- For always-on mounts after reboot, create an rclone systemd mount service for `/mnt/gphotos`.
 
 ---
 
 ## Configuration
 
-
-Edit `~/picframe_data/config/configuration.yaml`:
-
-### Key Settings
+### Key Settings (in `~/picframe_data/config/configuration.yaml`)
 
 ```yaml
 viewer:
@@ -198,36 +151,34 @@ viewer:
 
   # Display
   fit: False                                # False = crop to fill, True = show all
-  display_power: 2                         # 0=vcgencmd, 1=xset, 2=wlr-randr
+  display_power: 2                          # 0=vcgencmd, 1=xset, 2=wlr-randr
   use_sdl2: True                            # use SDL2 (recommended for Pi)
-  
+
   # Video ratio (X/Y randomized)
-  video_ratio_enabled: True              # enable randomized video/photo ratio
-  video_ratio_videos: 1                  # X videos per Y total (e.g., 1 = 1 video per total)
-  video_ratio_total: 10                  # Y total media denominator
-  video_quarantine_days: 330          # fixed cooldown days before video eligible again
-  video_volume: 0                    # 0 = muted, 100 = full volume
-  video_fit_display: True              # True = stretch to fit
-  video_progress_show: True          # show video duration countdown
-  video_play_immediately: True        # start video when fade-in completes
+  video_ratio_enabled: True
+  video_ratio_videos: 1
+  video_ratio_total: 10
+  video_quarantine_days: 330
+  video_volume: 0
+  video_fit_display: True
+  video_progress_show: True
+  video_play_immediately: True
 
   # Photo cooldown
-  photo_quarantine_days: 330            # fixed cooldown days before photo eligible again
-  
+  photo_quarantine_days: 330
+
   # Web interface
-  show_cache_indicator: True               # show cache building progress
-  cache_progress_x_offset: 80              # adjust position as needed
-  
+  show_cache_indicator: True
+  cache_progress_x_offset: 80
+
 model:
   pic_dir: "/mnt/nas"                      # your photo/video folder (NAS mount)
-  subdirectory: ""                          # subfolder if needed
-  
-  # Auto-update / Auto-run
-  autorun_enabled: True                  # enable auto-start on login
+  subdirectory: ""
+  autorun_enabled: True
 
 http:
   use_http: True
-  port: 9000                               # web UI port
+  port: 9000
   path: "~/picframe_data/html"
 ```
 
@@ -256,10 +207,6 @@ Features:
 - Current image preview
 - Cache progress indicator
 
-### Keyboard Controls (if configured)
-- Space: Pause/Resume
-- O: Toggle display off/on
-
 ---
 
 ## Troubleshooting
@@ -274,10 +221,10 @@ Features:
 - Check `use_sdl2: True` is set
 
 **Cache not building:**
-- Delete `.db3` files and restart to rebuild:
+- Delete `.db3` files and restart:
   ```bash
   rm -f ~/picframe_data/data/*.db3
-  ~/pi/start_picframe.sh
+  /home/pi/start_picframe.sh
   ```
 
 **HTTP UI not loading:**
