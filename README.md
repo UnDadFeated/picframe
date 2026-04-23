@@ -9,15 +9,13 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 - 18 intuitive workflow groups for fast scanning
 - Intuitive choice selectors - see actual option names instead of numbers
 - Choice selectors with `< Left/Right >`, plus per-setting `[R]` revert
-- Run locally using: `./pfconfig.sh` or remotely via `ssh pi@192.168.4.110 "python3 /home/pi/picframe/src/picframe/pfconfig.py"`
+- Run locally using: `./pfconfig.sh` or remotely via `ssh pi@<pi-hostname> "python3 ~/picframe_data/config/pfconfig.py"`
 
 ### Auto-Update & Deployment
 - Configure automatic updates on startup from your GitHub fork
 - Works with pip-installed versions (no local git repo needed)
 - Enable via `pfconfig` menu: `Updates` → `Auto Update On Start`
 - Point to your fork's branch and URL for seamless updates
-- Use `tmp/deploy_picframe.sh` for one-click local-to-Pi deployment
-- Use `tmp/update_picframe.sh` for remote-only updates (runs on Pi)
 
 ### Playback & Caching
 - Photo + video support with AV1 playback
@@ -101,8 +99,8 @@ After reboot, configure Picframe:
    ```
    Or use the TUI:
     ```bash
-    cd /home/pi/picframe
-    src/picframe/config/pfconfig.sh
+    cd ~/picframe_data/config
+    ./pfconfig.sh
     ```
 
 2. **Set your media directory** in `model.pic_dir` (e.g., `/mnt/nas` for NAS-mounted photos/videos)
@@ -112,7 +110,7 @@ After reboot, configure Picframe:
    /home/pi/start_picframe.sh
    ```
 
-4. **Access the Web UI** at `http://<pi-ip>:9000`
+4. **Access the Web UI** at `http://<hostname>:9000`
 
 ### Google Photos via rclone (Optional)
 
