@@ -1,0 +1,17 @@
+[Unit]
+Description=Picframe slideshow
+After=network-online.target local-fs.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi
+Restart=on-failure
+RestartSec=5
+Environment=WAYLAND_DISPLAY=wayland-1
+ExecStart=/home/pi/venv_picframe/bin/picframe
+
+[Install]
+WantedBy=multi-user.target

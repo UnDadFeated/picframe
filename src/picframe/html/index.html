@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>PicFrame Control</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #222535;
+      --border: #2e3147;
+      --accent: #5b8af5;
+      --accent2: #7c5bf5;
+      --green: #3ecf8e;
+      --red: #f56565;
+      --text: #e2e8f0;
+      --text-muted: #8892a4;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 { font-size: 20px; font-weight: 600; letter-spacing: .3px; }
+    header h1 span { color: var(--accent); }
+    #status-badge {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    #status-badge.loading { color: #f6ad55; border-color: #f6ad55; }
+    #status-badge.ready   { color: var(--green); border-color: var(--green); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+    }
+    .card h2 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    /* Toggle buttons */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-label { color: var(--text); }
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .slider:before {
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 3px;
+      top: 3px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      transition: transform .2s, background .2s;
+    }
+    input:checked + .slider { background: var(--accent); border-color: var(--accent); }
+    input:checked + .slider:before { transform: translateX(20px); background: #fff; }
+
+    /* Action buttons */
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      padding: 8px 16px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+      transition: background .15s, border-color .15s;
+    }
+    .btn:hover { background: var(--border); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { background: #4a7be0; }
+    .btn.danger { background: transparent; border-color: var(--red); color: var(--red); }
+    .btn.danger:hover { background: rgba(245,101,101,.1); }
+
+    /* Inputs */
+    .input-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .input-row:last-child { border-bottom: none; }
+    .input-row label { color: var(--text); white-space: nowrap; }
+    .input-row input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 5px 9px;
+      font-size: 13px;
+      width: 130px;
+      text-align: right;
+    }
+    .input-row input:focus { outline: none; border-color: var(--accent); }
+
+    /* Cache progress bar */
+    #cache-section {
+      margin-top: 16px;
+      display: none;
+    }
+    #cache-bar-wrap {
+      background: var(--surface2);
+      border-radius: 6px;
+      height: 6px;
+      overflow: hidden;
+      margin: 8px 0 4px;
+    }
+    #cache-bar { height: 100%; background: var(--accent); width: 0%; transition: width .5s; }
+    #cache-info { font-size: 12px; color: var(--text-muted); }
+
+    /* Current image preview */
+    #preview-wrap {
+      text-align: center;
+      margin-top: 4px;
+    }
+    #preview-img {
+      max-width: 100%;
+      max-height: 220px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      object-fit: contain;
+      display: none;
+    }
+    #current-fname {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      word-break: break-all;
+    }
+    a.see-full {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a.see-full:hover { text-decoration: underline; }
+
+    /* Refresh pulse */
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .refreshing { animation: pulse .8s infinite; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Pic<span>Frame</span></h1>
+  <div id="status-badge">Loading…</div>
+</header>
+
+<div class="grid">
+
+  <!-- Playback Controls -->
+  <div class="card">
+    <h2>Playback</h2>
+    <div class="toggle-row">
+      <span class="toggle-label">Paused</span>
+      <label class="toggle"><input type="checkbox" id="paused" onchange="sendToggle('paused',this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Display On</span>
+      <label class="toggle"><input type="checkbox" id="display_is_on" onchange="sendToggle('display_is_on',this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Shuffle</span>
+      <label class="toggle"><input type="checkbox" id="shuffle" onchange="sendToggle('shuffle',this.checked)"><span class="slider"></span></label>
+    </div>
+    <div style="margin-top:14px;" class="btn-row">
+      <button class="btn" onclick="sendAction('back={}')">&#9664; Back</button>
+      <button class="btn primary" onclick="sendAction('next={}')">Next &#9654;</button>
+    </div>
+  </div>
+
+  <!-- Timing -->
+  <div class="card">
+    <h2>Timing</h2>
+    <div class="input-row">
+      <label>Slide delay (s)</label>
+      <input type="number" id="time_delay" min="5" step="5">
+    </div>
+    <div class="input-row">
+      <label>Fade time (s)</label>
+      <input type="number" id="fade_time" min="0" step="1">
+    </div>
+    <div class="input-row">
+      <label>Brightness (0–1)</label>
+      <input type="number" id="brightness" min="0" max="1" step="0.05">
+    </div>
+    <div style="margin-top:14px;" class="btn-row">
+      <button class="btn primary" onclick="applyInputs()">Apply</button>
+    </div>
+  </div>
+
+  <!-- Overlay Text -->
+  <div class="card">
+    <h2>Overlay Text</h2>
+    <div class="toggle-row">
+      <span class="toggle-label">Filename</span>
+      <label class="toggle"><input type="checkbox" id="text_name" onchange="sendShowText('name',this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Date</span>
+      <label class="toggle"><input type="checkbox" id="text_date" onchange="sendShowText('date',this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Folder</span>
+      <label class="toggle"><input type="checkbox" id="text_folder" onchange="sendShowText('folder',this.checked)"><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Location</span>
+      <label class="toggle"><input type="checkbox" id="text_location" onchange="sendShowText('location',this.checked)"><span class="slider"></span></label>
+    </div>
+    <div style="margin-top:14px;" class="btn-row">
+      <button class="btn" onclick="sendAction('set_show_text={}')">Clear All</button>
+      <button class="btn" onclick="sendAction('refresh_show_text={}')">Refresh</button>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card">
+    <h2>Filters</h2>
+    <div class="input-row">
+      <label>Date from</label>
+      <input type="date" id="date_from">
+    </div>
+    <div class="input-row">
+      <label>Date to</label>
+      <input type="date" id="date_to">
+    </div>
+    <div class="input-row">
+      <label>Subdirectory</label>
+      <input type="text" id="subdirectory" style="width:130px;text-align:left;">
+    </div>
+    <div class="input-row">
+      <label>Location filter</label>
+      <input type="text" id="location_filter" style="width:130px;text-align:left;">
+    </div>
+    <div class="input-row">
+      <label>Tags filter</label>
+      <input type="text" id="tags_filter" style="width:130px;text-align:left;">
+    </div>
+    <div style="margin-top:14px;" class="btn-row">
+      <button class="btn primary" onclick="applyFilters()">Apply</button>
+    </div>
+  </div>
+
+  <!-- Current Photo -->
+  <div class="card">
+    <h2>Current Photo</h2>
+    <div id="preview-wrap">
+      <img id="preview-img" src="" alt="Current photo">
+      <div id="current-fname">—</div>
+      <a class="see-full" href="/current_image" target="_blank">View full size &#8599;</a>
+    </div>
+    <div id="cache-section">
+      <div id="cache-info">Building cache…</div>
+      <div id="cache-bar-wrap"><div id="cache-bar"></div></div>
+    </div>
+  </div>
+
+  <!-- Maintenance -->
+  <div class="card">
+    <h2>Maintenance</h2>
+    <div class="btn-row" style="flex-direction:column;gap:10px;">
+      <button class="btn danger" onclick="confirmAction('purge_files={}','Remove missing files from database?')">Purge Missing Files</button>
+      <button class="btn danger" onclick="confirmAction('stop={}','Stop PicFrame?')">Stop PicFrame</button>
+      <button class="btn danger" onclick="confirmAction('delete={}','Delete the current image?')">Delete Current Image</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ── API helpers ─────────────────────────────────────────────────────────
+  async function api(query) {
+    const r = await fetch('/?' + query);
+    try { return await r.json(); } catch { return {}; }
+  }
+
+  function sendToggle(key, val) {
+    api(key + '=' + (val ? 'true' : 'false'));
+  }
+
+  function sendAction(query) {
+    api(query);
+  }
+
+  function confirmAction(query, msg) {
+    if (confirm(msg)) api(query);
+  }
+
+  function sendShowText(key, val) {
+    api('set_show_text={"txt_key":"' + key + '","val":"' + (val ? 'ON' : 'OFF') + '"}');
+  }
+
+  // ── Apply numeric/text inputs ────────────────────────────────────────────
+  function applyInputs() {
+    const td = document.getElementById('time_delay').value;
+    const ft = document.getElementById('fade_time').value;
+    const br = document.getElementById('brightness').value;
+    if (td) api('time_delay=' + td);
+    if (ft) api('fade_time=' + ft);
+    if (br) api('brightness=' + br);
+  }
+
+  function applyFilters() {
+    const df = document.getElementById('date_from').value;
+    const dt = document.getElementById('date_to').value;
+    const sd = document.getElementById('subdirectory').value;
+    const lf = document.getElementById('location_filter').value;
+    const tf = document.getElementById('tags_filter').value;
+    if (df) api('date_from=' + df.replace(/-/g,'/'));
+    if (dt) api('date_to=' + dt.replace(/-/g,'/'));
+    api('subdirectory=' + encodeURIComponent(sd));
+    api('location_filter=' + encodeURIComponent(lf));
+    api('tags_filter=' + encodeURIComponent(tf));
+  }
+
+  // ── Format date for input[type=date] ─────────────────────────────────────
+  function tsToDate(ts) {
+    if (!ts || ts <= 0) return '';
+    const d = new Date(ts * 1000);
+    return d.toISOString().split('T')[0];
+  }
+
+  // ── Refresh all state from server ────────────────────────────────────────
+  let _lastImg = '';
+  async function refresh() {
+    const badge = document.getElementById('status-badge');
+    badge.classList.add('refreshing');
+
+    let data = {};
+    try { data = await api('all'); } catch {}
+
+    badge.classList.remove('refreshing');
+
+    // Toggles
+    setToggle('paused', data.paused);
+    setToggle('display_is_on', data.display_is_on);
+    setToggle('shuffle', data.shuffle);
+
+    // Numeric inputs (only if not focused)
+    setInput('time_delay', data.time_delay);
+    setInput('fade_time', data.fade_time);
+    setInput('brightness', data.brightness !== undefined ? parseFloat(data.brightness).toFixed(2) : '');
+
+    // Date filters
+    setInput('date_from', tsToDate(data.date_from));
+    setInput('date_to', tsToDate(data.date_to));
+
+    // Text filters
+    setInput('subdirectory', data.subdirectory);
+    setInput('location_filter', data.location_filter);
+    setInput('tags_filter', data.tags_filter);
+
+    // Cache status
+    let cacheData = {};
+    try { const cr = await fetch('/?get_cache_status='); cacheData = await cr.json(); } catch {}
+    const cs = cacheData.get_cache_status || {};
+    const loading = cs.loading || false;
+    const pct = cs.scan_percent || 0;
+    const count = cs.file_count || 0;
+    const cacheSection = document.getElementById('cache-section');
+    const cacheInfo = document.getElementById('cache-info');
+    const cacheBar = document.getElementById('cache-bar');
+    if (loading) {
+      cacheSection.style.display = 'block';
+      cacheInfo.textContent = `Building cache… ${pct.toFixed(0)}% (${count} files)`;
+      cacheBar.style.width = pct.toFixed(0) + '%';
+      badge.textContent = 'Building cache';
+      badge.className = 'loading';
+    } else {
+      cacheSection.style.display = 'none';
+      badge.textContent = count + ' files ready';
+      badge.className = 'ready';
+    }
+
+    // Current image preview
+    const previewImg = document.getElementById('preview-img');
+    const imgUrl = '/current_image?' + Date.now();
+    if (_lastImg !== imgUrl) {
+      _lastImg = imgUrl;
+      previewImg.onload = function() { this.style.display = 'block'; };
+      previewImg.onerror = function() { this.style.display = 'none'; };
+      previewImg.src = imgUrl;
+    }
+    // Current filename from cache status
+    if (cs.current_file) {
+      document.getElementById('current-fname').textContent = cs.current_file.split('/').pop();
+    }
+  }
+
+  function setToggle(id, val) {
+    const el = document.getElementById(id);
+    if (el && val !== undefined) el.checked = !!val;
+  }
+
+  function setInput(id, val) {
+    const el = document.getElementById(id);
+    if (el && document.activeElement !== el && val !== undefined && val !== null) {
+      el.value = val;
+    }
+  }
+
+  // ── Boot ─────────────────────────────────────────────────────────────────
+  refresh();
+  setInterval(refresh, 5000);
+</script>
+</body>
+</html>

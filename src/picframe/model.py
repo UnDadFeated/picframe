@@ -1,0 +1,719 @@
+import yaml  # type: ignore
+import os
+import shutil
+import time
+import random
+import logging
+import locale
+from picframe import geo_reverse, image_cache
+from picframe.video_streamer import VIDEO_EXTENSIONS
+
+DEFAULT_CONFIGFILE = "~/picframe_data/config/configuration.yaml"
+DEFAULT_CONFIG = {
+    'viewer': {
+        'blur_amount': 12,
+        'blur_zoom': 1.0,
+        'blur_edges': False,
+        'edge_alpha': 0.5,
+        'fps': 20.0,
+        'background': [0.2, 0.2, 0.3, 1.0],
+        'blend_type': "blend",  # {"blend":0.0, "burn":1.0, "bump":2.0}
+        'font_file': '~/picframe_data/data/fonts/NotoSans-Regular.ttf',
+        'shader': '~/picframe_data/data/shaders/blend_new',
+        'show_text_fm': '%b %d, %Y',
+        'show_text_tm': 20.0,
+        'show_text_sz': 40,
+        'show_text': "name location",
+        'text_justify': 'L',
+        'text_bkg_hgt': 0.25,
+        'text_opacity': 1.0,
+        'text_x_margin': 100,
+        'text_y_margin': 0,
+        'text_x_position': None,              # absolute X position in pixels (overrides text_x_margin when set)
+        'text_y_position': None,              # absolute Y position in pixels (overrides text_y_margin when set)
+        'text_position_mode': 'margin',        # 'margin' = use margins, 'absolute' = use x/y_position
+        'text_width': None,                   # max width for text wrapping in pixels
+        'text_line_spacing': 1.2,              # line spacing multiplier for multi-line text
+        'video_volume': 0,                   # video volume 0-100 (set to 0 to mute)
+        'video_progress_show': True,          # M:SS time remaining overlay while video plays
+        'video_play_immediately': True,       # True after fade-in; False waits for show_text_tm too
+        'show_video_text': "name",            # video text fields to show (similar to show_text for photos)
+        'show_video_text_tm': 20.0,           # video text show time (sec)
+        'slide_progress_show': True,          # slide countdown for photos (not during video)
+        'slide_progress_font_size': 11,        # slide countdown text font size
+        'show_cache_indicator': True,          # show cache building indicator on startup
+        'cache_progress_position': 'bottom-right',  # cache progress text anchor: top-right or bottom-right
+        'cache_progress_x_offset': 58,         # pixels inward from the right screen edge for the % anchor
+        'cache_progress_y_offset': 59,         # pixels up from the bottom screen edge for the progress text
+        'cache_progress_font_size': 11,        # cache progress text font size
+        'cache_progress_text_width': 500,      # max pixel width of the filename portion
+        'slide_progress_position': 'top-right',  # slide-change progress bar anchor
+        'slide_progress_x_offset': 0,         # slide progress bar X pixel offset
+        'slide_progress_y_offset': 0,         # slide progress bar Y pixel offset
+        'log_level': 'WARNING',                # logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+        'log_max_days': 10,                    # maximum days to keep log files
+        'date_range_days': 15,                 # show photos within +/- this many days of current date
+        'enable_date_filter': True,           # enable date-based filtering (photos from around current date)
+        'enable_smart_cache': True,            # only retain/cache media in configured date window
+        'cache_refresh_timezone': 'America/Los_Angeles',  # timezone for midnight refresh
+        'cache_start_min_files': 0,            # keep waiting screen until this many files are cached (0 = wait until cache build completes)
+        'video_every_n_photos': 10,             # legacy cadence: when videos exist, enforce at least one video every N photos
+        'video_ratio_enabled': True,            # enable randomized X/Y video ratio selection
+        'video_ratio_videos': 1,                # randomized X/Y mixer: videos numerator
+        'video_ratio_total': 10,                # randomized X/Y mixer: total media denominator
+        'video_quarantine_days': 330,           # fixed cooldown days before a video is eligible again
+        'photo_quarantine_days': 330,           # fixed cooldown days before a photo is eligible again
+        'fit': False,
+        'video_fit_display': True,
+        'kenburns': False,
+        'display_x': 0,
+        'display_y': 0,
+        'display_w': None,
+        'display_h': None,
+        'display_power': 2,
+        'display_hdmi': "HDMI-A-1",
+        'use_glx': False,                          # default=False. Set to True on linux with xserver running
+        'use_sdl2': True,
+
+        'mat_images': True,
+        'mat_type': None,
+        'outer_mat_color': None,
+        'inner_mat_color': None,
+        'outer_mat_border': 75,
+        'inner_mat_border': 40,
+        'inner_mat_use_texture': False,
+        'outer_mat_use_texture': True,
+        'mat_resource_folder': '~/picframe_data/data/mat',
+        'show_clock': False,
+        'clock_justify': "R",
+        'clock_text_sz': 120,
+        'clock_format': "%I:%M",
+        'clock_opacity': 1.0,
+        'clock_top_bottom': "T",
+        'clock_wdt_offset_pct': 3.0,
+        'clock_hgt_offset_pct': 3.0,
+        'menu_text_sz': 40,
+        'menu_autohide_tm': 10.0,
+        'geo_suppress_list': [],
+    },
+    'model': {
+
+        'pic_dir': '~/Pictures',
+        'no_files_img': '~/picframe_data/data/no_pictures.jpg',
+        'follow_links': False,
+        'subdirectory': '',
+        'recent_n': 3,
+        'reshuffle_num': 1,
+        'time_delay': 200.0,
+        'fade_time': 10.0,
+        'shuffle': True,
+        'sort_cols': 'fname ASC',
+        'image_attr': ['PICFRAME GPS'],  # image attributes send by MQTT, Keys are taken from exifread library, 'PICFRAME GPS' is special to retrieve GPS lon/lat # noqa: E501
+        'load_geoloc': True,
+        'locale': 'en_US.utf8',
+        'key_list': [['tourism', 'amenity', 'isolated_dwelling'],
+                     ['suburb', 'village'],
+                     ['city', 'county'],
+                     ['region', 'state', 'province'],
+                     ['country']],
+        'geo_key': 'this_needs_to@be_changed',  # use your email address
+        'db_file': '~/picframe_data/data/pictureframe.db3',
+        'bad_files_db': '~/picframe_data/data/bad_files.db3',
+        'portrait_pairs': False,
+        'deleted_pictures': '~/DeletedPictures',
+        'update_interval': 2.0,
+        'log_level': 'WARNING',
+        'log_file': '',
+        'location_filter': '',
+        'tags_filter': '',
+    },
+    'mqtt': {
+        'use_mqtt': False,
+        'server': '',
+        'port': 1883,
+        'login': '',
+        'password': '',
+        'tls': '',
+        'device_id': 'picframe',
+        'device_url': '',
+    },
+    'http': {
+        'use_http': False,
+        'path': '~/picframe_data/html',
+        'port': 9000,
+        'auth': False,
+        'username': '',
+        'password': None,
+        'use_ssl': False,
+        'keyfile': '',
+        'certfile': ''
+    },
+    'peripherals': {
+        'input_type': None,  # valid options: {None, "keyboard", "touch", "mouse"}
+        'buttons': {
+            'pause': {'enable': True, 'label': 'Pause', 'shortcut': ' '},
+            'display_off': {'enable': True, 'label': 'Display off', 'shortcut': 'o'},
+            'location': {'enable': False, 'label': 'Location', 'shortcut': 'l'},
+            'exit': {'enable': False, 'label': 'Exit', 'shortcut': 'e'},
+            'power_down': {'enable': False, 'label': 'Power down', 'shortcut': 'p'}
+        },
+    },
+    'dashboard': {
+        'daily_recap_mode': False,
+    },
+    'updater': {
+        'auto_update_on_start': False,
+        'git_branch': 'dev',
+        'git_remote': 'fork',
+        'pip_git_url': 'https://github.com/UnDadFeated/picframe.git',
+        'repo_dir': '',
+        'restart_after_update': True,
+    },
+}
+
+
+class Pic:
+
+    def __init__(self, fname, last_modified, file_id, orientation=1, exif_datetime=0,
+                 f_number=0, exposure_time=None, iso=0, focal_length=None,
+                 make=None, model=None, lens=None, rating=None, latitude=None,
+                 longitude=None, width=0, height=0, is_portrait=0, location=None, title=None,
+                 caption=None, tags=None, white_balance=None, flash=None, metering_mode=None,
+                 exposure_mode=None, software=None, artist=None, copyright=None,
+                 lens_make=None, lens_model=None, last_displayed=0):
+        self.fname = fname
+        self.last_modified = last_modified
+        self.last_displayed = last_displayed
+        self.file_id = file_id
+        self.orientation = orientation
+        self.exif_datetime = exif_datetime
+        self.f_number = f_number
+        self.exposure_time = exposure_time
+        self.iso = iso
+        self.focal_length = focal_length
+        self.make = make
+        self.model = model
+        self.lens = lens
+        self.rating = rating
+        self.latitude = latitude
+        self.longitude = longitude
+        self.width = width
+        self.height = height
+        self.is_portrait = is_portrait
+        self.location = location
+        self.tags = tags
+        self.caption = caption
+        self.title = title
+        self.white_balance = white_balance
+        self.flash = flash
+        self.metering_mode = metering_mode
+        self.exposure_mode = exposure_mode
+        self.software = software
+        self.artist = artist
+        self.copyright = copyright
+        self.lens_make = lens_make
+        self.lens_model = lens_model
+
+
+class Model:
+
+    def __init__(self, configfile=DEFAULT_CONFIGFILE):
+        self.__logger = logging.getLogger("model.Model")
+        self.__logger.debug('creating an instance of Model')
+        self.__config = DEFAULT_CONFIG
+        self.__last_file_change = 0.0
+        configfile = os.path.expanduser(configfile)
+        self.__logger.info("Open config file: %s:", configfile)
+        with open(configfile, 'r') as stream:
+            try:
+                conf = yaml.safe_load(stream)
+                for section in ['viewer', 'model', 'mqtt', 'http', 'peripherals', 'dashboard', 'updater']:
+                    if section in conf:
+                        self.__config[section] = {**DEFAULT_CONFIG.get(section, {}), **conf[section]}
+
+                self.__logger.debug('config data = %s', self.__config)
+            except yaml.YAMLError as exc:
+                self.__logger.error("Can't parse yaml config file: %s: %s", configfile, exc)
+
+        self.__file_list = []  # this is now a list of tuples i.e (file_id1,) or (file_id1, file_id2)
+        self.__number_of_files = 0  # this is shortcut for len(__file_list)
+        self.__reload_files = True
+        self.__file_index = 0  # pointer to next position in __file_list
+        self.__current_pics = (None, None)  # this hold a tuple of (pic, None) or two pic objects if portrait pairs
+        self.__num_run_through = 0
+        self.__date_filter_applied = False  # Track if date filter was applied on current reload
+        self.__video_ratio_enabled = bool(self.__config['viewer'].get('video_ratio_enabled', True))
+        self.__video_ratio_videos = max(0, int(self.__config['viewer'].get('video_ratio_videos', 1)))
+        self.__video_ratio_total = max(1, int(self.__config['viewer'].get('video_ratio_total', 10)))
+        self.__video_quarantine_days = max(0, int(self.__config['viewer'].get('video_quarantine_days', 330)))
+        self.__photo_quarantine_days = max(0, int(self.__config['viewer'].get('photo_quarantine_days', 330)))
+        if self.__video_ratio_videos > self.__video_ratio_total:
+            self.__video_ratio_videos = self.__video_ratio_total
+        self.__selection_where_clause = "1"
+        self.__selection_has_videos = False
+
+
+        model_config = self.get_model_config()  # alias for brevity as used several times below
+        try:
+            locale.setlocale(locale.LC_TIME, model_config['locale'])
+        except Exception:
+            self.__logger.error("error trying to set locale to {}".format(model_config['locale']))
+        self.__pic_dir = os.path.expanduser(model_config['pic_dir'])
+        self.__subdirectory = os.path.expanduser(model_config['subdirectory'])
+        self.__load_geoloc = model_config['load_geoloc']
+        self.__geo_reverse = geo_reverse.GeoReverse(model_config['load_geoloc'],
+                                                    model_config['geo_key'],
+                                                    key_list=self.get_model_config()['key_list'])
+        viewer_config = self.get_viewer_config()
+        self.__image_cache = image_cache.ImageCache(self.__pic_dir,
+                                                    model_config['follow_links'],
+                                                    os.path.expanduser(model_config['db_file']),
+                                                    self.__geo_reverse,
+                                                    model_config['update_interval'],
+                                                    model_config['portrait_pairs'],
+                                                    viewer_config.get('enable_smart_cache', True),
+                                                    viewer_config.get('date_range_days', 15),
+                                                    os.path.expanduser(model_config.get('bad_files_db', '~/picframe_data/data/bad_files.db3')))
+        self.__deleted_pictures = model_config['deleted_pictures']
+        self.__no_files_img = os.path.expanduser(model_config['no_files_img'])
+        self.__sort_cols = model_config['sort_cols']
+        self.__col_names = None
+        # init where clauses through setters
+        self.__where_clauses = {}
+        self.location_filter = model_config['location_filter']
+        self.tags_filter = model_config['tags_filter']
+
+    def get_viewer_config(self):
+        conf = self.__config['viewer'].copy()
+        if 'dashboard' in self.__config:
+            conf.update(self.__config['dashboard'])
+        return conf
+
+    def get_model_config(self):
+        return self.__config['model']
+
+    def get_cache_status(self):
+        """Return cache status info for progress indicator"""
+        if self.__image_cache is None:
+            return {
+                'file_count': 0,
+                'loading': self.__reload_files,
+                'current_file': None,
+                'total_files_known': False,
+                'bad_files_count': 0,
+            }
+        cache_status = self.__image_cache.get_status()
+        bad_files = self.__image_cache.get_bad_files() if hasattr(self.__image_cache, 'get_bad_files') else []
+        return {
+            'file_count': cache_status.get('file_count', self.__number_of_files),
+            'loading': self.__reload_files or cache_status.get('loading', False),
+            'current_file': cache_status.get('current_file'),
+            'scan_total': cache_status.get('scan_total', 0),
+            'scan_processed': cache_status.get('scan_processed', 0),
+            'scan_percent': cache_status.get('scan_percent', 0.0),
+            'total_files_known': True,
+            'bad_files_count': len(bad_files),
+        }
+    
+    def is_cache_loading(self):
+        """Check if cache is still loading/rebuilding"""
+        if self.__image_cache is None:
+            return self.__reload_files
+        return self.__reload_files or self.__image_cache.get_status().get('loading', False)
+
+    def get_mqtt_config(self):
+        return self.__config['mqtt']
+
+    def get_http_config(self):
+        if 'auth' in self.__config['http'] and self.__config['http']['auth'] and self.__config['http']['password'] is None:
+            http_parent = os.path.abspath(os.path.join(self.__config['http']['path'], os.pardir))
+            password_path = os.path.join(http_parent, 'basic_auth.txt')
+            if not os.path.exists(password_path):
+                new_password = self.__generate_random_string(64)
+                with open(password_path, "w") as f:
+                    f.write(new_password)
+            with open(password_path, "r") as f:
+                password = f.read()
+                self.__config['http']['password'] = password
+        return self.__config['http']
+
+    def get_peripherals_config(self):
+        return self.__config['peripherals']
+
+    def get_updater_config(self):
+        return self.__config['updater']
+
+    @property
+    def fade_time(self):
+        return self.__config['model']['fade_time']
+
+    @fade_time.setter
+    def fade_time(self, time):
+        self.__config['model']['fade_time'] = time
+
+    @property
+    def time_delay(self):
+        return self.__config['model']['time_delay']
+
+    @time_delay.setter
+    def time_delay(self, time):
+        self.__config['model']['time_delay'] = time
+
+    @property
+    def subdirectory(self):
+        return self.__subdirectory
+
+    @subdirectory.setter
+    def subdirectory(self, dir):
+        _, root = os.path.split(self.__pic_dir)
+        actual_dir = root
+        if self.subdirectory != '':
+            actual_dir = self.subdirectory
+        if actual_dir != dir:
+            if root == dir:
+                self.__subdirectory = ''
+            else:
+                self.__subdirectory = dir
+            self.__logger.info("Set subdirectory to: %s", self.__subdirectory)
+            self.__reload_files = True
+
+    @property
+    def EXIF_TO_FIELD(self):  # bit convoluted TODO hold in config? not really configurable
+        return self.__image_cache.EXIF_TO_FIELD
+
+    @property
+    def update_interval(self):
+        return self.__config['model']['update_interval']
+
+    @property
+    def shuffle(self):
+        return self.__config['model']['shuffle']
+
+    @shuffle.setter
+    def shuffle(self, val: bool):
+        self.__config['model']['shuffle'] = val  # TODO should this be altered in config?
+        self.__reload_files = True
+
+    @property
+    def location_filter(self):
+        return self.__config['model']['location_filter']
+
+    @location_filter.setter
+    def location_filter(self, val):
+        self.__config['model']['location_filter'] = val
+        if len(val) > 0:
+            self.set_where_clause("location_filter", self.__build_filter(val, "location"))
+        else:
+            self.set_where_clause("location_filter")  # remove from where_clause
+        self.__reload_files = True
+
+    @property
+    def tags_filter(self):
+        return self.__config['model']['tags_filter']
+
+    @tags_filter.setter
+    def tags_filter(self, val):
+        self.__config['model']['tags_filter'] = val
+        if len(val) > 0:
+            self.set_where_clause("tags_filter", self.__build_filter(val, "tags"))
+        else:
+            self.set_where_clause("tags_filter")  # remove from where_clause
+        self.__reload_files = True
+
+    def __build_filter(self, val, field):
+        if val.count("(") != val.count(")"):
+            return None  # this should clear the filter and not raise an error
+        val = val.replace(";", "").replace("'", "").replace("%", "").replace('"', '')  # SQL scrambling
+        tokens = ("(", ")", "AND", "OR", "NOT")  # now copes with NOT
+        val_split = val.replace("(", " ( ").replace(")", " ) ").split()  # so brackets not joined to words
+        filter = []
+        last_token = ""
+        for s in val_split:
+            s_upper = s.upper()
+            if s_upper in tokens:
+                if s_upper in ("AND", "OR"):
+                    if last_token in ("AND", "OR"):
+                        return None  # must have a non-token between
+                    last_token = s_upper
+                filter.append(s)
+            else:
+                if last_token is not None:
+                    filter.append("{} LIKE '%{}%'".format(field, s))
+                else:
+                    filter[-1] = filter[-1].replace("%'", " {}%'".format(s))
+                last_token = None
+        return "({})".format(" ".join(filter))  # if OR outside brackets will modify the logic of rest of where clauses
+
+    def set_where_clause(self, key, value=None):
+        # value must be a string for later join()
+        if (value is None or len(value) == 0):
+            if key in self.__where_clauses:
+                self.__where_clauses.pop(key)
+            return
+        self.__where_clauses[key] = value
+
+    def pause_looping(self, val):
+        self.__image_cache.pause_looping(val)
+
+    def stop_image_cache(self):
+        self.__image_cache.stop()
+
+    def purge_files(self):
+        self.__image_cache.purge_files()
+
+    def get_directory_list(self):
+        _, root = os.path.split(self.__pic_dir)
+        actual_dir = root
+        if self.subdirectory != '':
+            actual_dir = self.subdirectory
+        follow_links = self.get_model_config()['follow_links']
+        subdir_list = next(os.walk(self.__pic_dir, followlinks=follow_links))[1]
+        subdir_list[:] = [d for d in subdir_list if not d[0] == '.']
+        if not follow_links:
+            subdir_list[:] = [d for d in subdir_list if not os.path.islink(self.__pic_dir + '/' + d)]
+        subdir_list.insert(0, root)
+        return actual_dir, subdir_list
+
+    def force_reload(self):
+        self.__reload_files = True
+
+    def set_next_file_to_previous_file(self):
+        self.__file_index = (self.__file_index - 2) % self.__number_of_files  # TODO deleting last image results in ZeroDivisionError # noqa: E501
+
+    def __is_video_file_id(self, file_ids):
+        if not file_ids:
+            return False
+        return self.__image_cache.is_video_file(file_ids[0]) if self.__image_cache is not None else False
+
+    def __choose_target_media_type(self):
+        if not self.__video_ratio_enabled:
+            return 'any'
+        if not self.__selection_has_videos:
+            return 'photo'
+        if self.__video_ratio_videos <= 0:
+            return 'photo'
+        if self.__video_ratio_videos >= self.__video_ratio_total:
+            return 'video'
+        return 'video' if random.random() < (self.__video_ratio_videos / self.__video_ratio_total) else 'photo'
+
+    def __select_next_index_by_media_type(self, target_media_type):
+        if self.__image_cache is None or self.__number_of_files == 0:
+            return None
+        if target_media_type == 'any':
+            return self.__file_index
+        want_video = target_media_type == 'video'
+        max_search = min(self.__number_of_files, 200)
+        for offset in range(max_search):
+            idx = (self.__file_index + offset) % self.__number_of_files
+            file_ids = self.__file_list[idx]
+            if self.__is_video_file_id(file_ids) == want_video:
+                return idx
+        return None
+
+    def get_next_file(self):
+
+        min_files = self.__config['viewer'].get('cache_start_min_files', 0)
+        if self.__image_cache is not None and self.__number_of_files == 0:
+            cache_status = self.__image_cache.get_status()
+            if (min_files == 0 and cache_status.get('loading', False)) or \
+               (min_files > 0 and self.__image_cache.get_file_count() < min_files):
+                self.__reload_files = True
+                self.__current_pics = (Pic(self.__no_files_img, 0, 0), None)
+                return self.__current_pics
+
+        missing_images = 0
+
+        # loop until we acquire a valid image set
+        while True:
+            pic1 = None
+            pic2 = None
+
+            # Reload the playlist if requested
+            if self.__reload_files:
+                for _i in range(5):  # give image_cache chance on first load if a large directory
+                    self.__get_files()
+                    missing_images = 0
+                    if self.__number_of_files > 0:
+                        break
+                    time.sleep(0.5)
+
+            # If we don't have any files to show, prepare the "no images" image
+            # Also, set the reload_files flag so we'll check for new files on the next pass...
+            if self.__number_of_files == 0 or missing_images >= self.__number_of_files:
+                pic1 = Pic(self.__no_files_img, 0, 0)
+                self.__reload_files = True
+                break
+
+            # If we've displayed all images...
+            #   If it's time to shuffle, set a flag to do so
+            #   Loop back, which will reload and shuffle if necessary
+            if self.__file_index == self.__number_of_files:
+                self.__num_run_through += 1
+                if self.shuffle and self.__num_run_through >= self.get_model_config()['reshuffle_num']:
+                    self.__reload_files = True
+                self.__file_index = 0
+                continue
+
+            selected_idx = self.__file_index
+            target_media_type = self.__choose_target_media_type()
+            preferred_idx = self.__select_next_index_by_media_type(target_media_type)
+            if preferred_idx is None:
+                # Fallback: if target type unavailable (no videos in current window or all quarantined), use next available media
+                preferred_idx = self.__file_index
+            selected_idx = preferred_idx
+
+            # Load the current image set
+            file_ids = self.__file_list[selected_idx]
+            pic_row = self.__image_cache.get_file_info(file_ids[0])
+            if pic_row is not None:
+                # Filter out 'extension' which is not a Pic parameter but is present in all_data view
+                pic_data = {k: v for k, v in dict(pic_row).items() if k != 'extension'}
+                pic1 = Pic(**pic_data)
+            else:
+                pic1 = None
+            if len(file_ids) == 2:
+                pic_row = self.__image_cache.get_file_info(file_ids[1])
+                if pic_row is not None:
+                    pic_data = {k: v for k, v in dict(pic_row).items() if k != 'extension'}
+                    pic2 = Pic(**pic_data)
+                else:
+                    pic2 = None
+
+
+            # Verify the images in the selected image set actually exist on disk
+            # Blank out missing references and swap positions if necessary to try and get
+            # a valid image in the first slot.
+            if pic1 and not os.path.isfile(pic1.fname):
+                pic1 = None
+            if pic2 and not os.path.isfile(pic2.fname):
+                pic2 = None
+            if (not pic1 and pic2):
+                pic1, pic2 = pic2, pic1
+
+            # Increment the image index for next time
+            self.__file_index = selected_idx + 1
+
+            # If pic1 is valid here, everything is OK. Break out of the loop and return the set
+            if pic1:
+                break
+
+
+            # Here, pic1 is undefined. That's a problem. Loop back and get another image set.
+            # Track the number of times we've looped back so we can abort if we don't have *any* images to display
+            missing_images += 1
+
+        self.__current_pics = (pic1, pic2)
+        return self.__current_pics
+
+    def get_number_of_files(self):
+        return sum(
+                    sum(1 for pic in pics if pic is not None)
+                    for pics in self.__file_list
+                )
+
+    def get_current_pics(self):
+        return self.__current_pics
+
+    def delete_file(self):
+        # delete the current pic. If it's a portrait pair then only the left one will be deleted
+        pic = self.__current_pics[0]
+        if pic is None:
+            return None
+        f_to_delete = pic.fname
+        move_to_dir = os.path.expanduser(self.__deleted_pictures)
+        # TODO should these os system calls be inside a try block
+        # in case the file has been deleted after it started to show?
+        if not os.path.exists(move_to_dir):
+            os.makedirs(move_to_dir, exist_ok=True)
+        shutil.move(f_to_delete, move_to_dir)
+        # find and delete record from __file_list
+        for i, file_rec in enumerate(self.__file_list):
+            if file_rec[0] == pic.file_id:  # database id TODO check that db tidies itself up
+                self.__file_list.pop(i)
+                self.__number_of_files -= 1
+                break
+
+    def __get_files(self):
+        if self.subdirectory != "":
+            picture_dir = os.path.join(self.__pic_dir, self.subdirectory)  # TODO catch, if subdirecotry does not exist
+        else:
+            picture_dir = self.__pic_dir
+        where_list = ["fname LIKE '{}/%'".format(picture_dir)]  # TODO / on end to stop 'test' also selecting test1 test2 etc  # noqa: E501
+        where_list.extend(self.__where_clauses.values())
+
+        # Apply date range filter if enabled (show photos within +/- date_range_days of current date, year-agnostic)
+        if self.__config['viewer'].get('enable_date_filter', False):
+            date_range = self.__config['viewer'].get('date_range_days', 15)
+
+            import datetime
+            today = datetime.date.today()
+            candidates = []
+            for i in range(-date_range, date_range + 1):
+                d = today + datetime.timedelta(days=i)
+                candidates.append(d.strftime('%m-%d'))
+
+            in_clause = ",".join(f"'{c}'" for c in candidates)
+            where_list.append(f"strftime('%m-%d', exif_datetime, 'unixepoch', 'localtime') IN ({in_clause})")
+            self.__logger.debug("Date filter applied: +/- %d days (Anniversary)", date_range)
+
+        # Per-media cooldown windows (0 disables cooldown for that media type)
+        video_ext_sql = ",".join(f"'{ext.lstrip('.')}'" for ext in VIDEO_EXTENSIONS)
+        cooldown_clauses = []
+        if self.__photo_quarantine_days > 0:
+            photo_cutoff = time.time() - (self.__photo_quarantine_days * 24 * 3600)
+            cooldown_clauses.append(f"(LOWER(extension) NOT IN ({video_ext_sql}) AND IFNULL(last_displayed, 0) < {photo_cutoff:.0f})")
+        else:
+            cooldown_clauses.append(f"(LOWER(extension) NOT IN ({video_ext_sql}))")
+
+        if self.__video_quarantine_days > 0:
+            video_cutoff = time.time() - (self.__video_quarantine_days * 24 * 3600)
+            cooldown_clauses.append(f"(LOWER(extension) IN ({video_ext_sql}) AND IFNULL(last_displayed, 0) < {video_cutoff:.0f})")
+        else:
+            cooldown_clauses.append(f"(LOWER(extension) IN ({video_ext_sql}))")
+
+        where_list.append(f"({' OR '.join(cooldown_clauses)})")
+
+        if len(where_list) > 0:
+            where_clause = " AND ".join(where_list)  # TODO now always true - remove unreachable code
+        else:
+            where_clause = "1"
+        self.__selection_where_clause = where_clause
+
+
+        sort_list = []
+        recent_n = self.get_model_config()["recent_n"]
+        if recent_n > 0:
+            sort_list.append("last_modified < {:.0f}".format(time.time() - 3600 * 24 * recent_n))
+
+        if self.shuffle:
+            sort_list.append("RANDOM()")
+        else:
+            if self.__col_names is None:
+                self.__col_names = self.__image_cache.get_column_names()  # do this once
+            for col in self.__sort_cols.split(","):
+                colsplit = col.split()
+                if colsplit[0] in self.__col_names and (len(colsplit) == 1 or colsplit[1].upper() in ("ASC", "DESC")):
+                    sort_list.append(col)
+            sort_list.append("fname ASC")  # always finally sort on this in case nothing else to sort on or sort_cols is "" # noqa: E501
+        sort_clause = ",".join(sort_list)
+
+        self.__file_list = self.__image_cache.query_cache(where_clause, sort_clause)
+        self.__number_of_files = len(self.__file_list)
+        self.__file_index = 0
+        self.__num_run_through = 0
+        self.__selection_has_videos = self.__image_cache.has_videos(where_clause)
+        self.__logger.info("Loaded %d files from cache", self.__number_of_files)
+
+        self.__reload_files = self.__number_of_files == 0
+
+    def check_date_filter(self):
+        """Check and update date filter/cache window daily at local midnight."""
+        if self.__config['viewer'].get('enable_date_filter', False):
+            self.__reload_files = True  # Force reload to apply new date range
+            if self.__image_cache is not None:
+                self.__image_cache.refresh_date_window()
+
+    def __generate_random_string(self, length):
+        random_bytes = os.urandom(length // 2)
+        random_string = ''.join('{:02x}'.format(byte) for byte in random_bytes)
+        return random_string
