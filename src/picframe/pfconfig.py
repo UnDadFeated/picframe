@@ -377,9 +377,9 @@ class PicframeConfigEditor:
         elif key == curses.KEY_RIGHT:
             self._handle_edit_right()
         elif key == curses.KEY_UP:
-            self._adjust_slider(-1)
+            self._handle_edit_up()
         elif key == curses.KEY_DOWN:
-            self._adjust_slider(1)
+            self._handle_edit_down()
         elif 32 <= key <= 126:  # Printable characters
             self.edit_buffer += chr(key)
             self.edit_cursor_pos = len(self.edit_buffer)
@@ -411,6 +411,30 @@ class PicframeConfigEditor:
         elif self.edit_cursor_pos < len(self.edit_buffer):
             self.edit_cursor_pos += 1
     
+    def _handle_edit_up(self) -> None:
+        """Handle up arrow key during editing"""
+        section = self.menu_sections[self.current_section_idx]
+        items = list(MENU_STRUCTURE[section].keys())
+        key_path = items[self.current_item_idx]
+        config_item = MENU_STRUCTURE[section][key_path]
+        
+        if config_item["type"] in ("int", "float"):
+            self._adjust_slider(-1)
+        elif config_item["type"] == "choice":
+            self._adjust_choice(-1)
+    
+    def _handle_edit_down(self) -> None:
+        """Handle down arrow key during editing"""
+        section = self.menu_sections[self.current_section_idx]
+        items = list(MENU_STRUCTURE[section].keys())
+        key_path = items[self.current_item_idx]
+        config_item = MENU_STRUCTURE[section][key_path]
+        
+        if config_item["type"] in ("int", "float"):
+            self._adjust_slider(1)
+        elif config_item["type"] == "choice":
+            self._adjust_choice(1)
+    
     def _adjust_choice(self, direction: int) -> None:
         """Adjust choice selection"""
         section = self.menu_sections[self.current_section_idx]
@@ -422,7 +446,11 @@ class PicframeConfigEditor:
             return
         
         choices = config_item["choices"]
-        current_value = get_nested_value(self.config, key_path)
+        # Use edit buffer value if available, otherwise config value
+        if self.editing and self.editing_key_path == key_path and self.edit_buffer:
+            current_value = self.edit_buffer
+        else:
+            current_value = get_nested_value(self.config, key_path)
         current_idx = choices.index(str(current_value)) if str(current_value) in choices else 0
         
         new_idx = current_idx + direction
@@ -440,7 +468,14 @@ class PicframeConfigEditor:
         if config_item["type"] not in ("int", "float"):
             return
         
-        current_value = get_nested_value(self.config, key_path)
+        # Use edit buffer value if currently editing and buffer has content
+        if self.editing and self.editing_key_path == key_path and self.edit_buffer:
+            try:
+                current_value = float(self.edit_buffer)
+            except (ValueError, TypeError):
+                current_value = get_nested_value(self.config, key_path)
+        else:
+            current_value = get_nested_value(self.config, key_path)
         if current_value is None:
             current_value = config_item.get("min", 0)
         
@@ -477,9 +512,17 @@ class PicframeConfigEditor:
         items = list(MENU_STRUCTURE[section].keys())
         if self.current_item_idx < len(items):
             key_path = items[self.current_item_idx]
-            current_value = get_nested_value(self.config, key_path)
+            config_item = MENU_STRUCTURE[section][key_path]
+            
+            # For int/float fields, clear buffer on entry so typing starts fresh
+            if config_item["type"] in ("int", "float"):
+                self.edit_buffer = ""
+            else:
+                current_value = get_nested_value(self.config, key_path)
+                self.edit_buffer = str(current_value) if current_value is not None else ""
+                
             self.editing_key_path = key_path
-            self.edit_buffer = str(current_value) if current_value is not None else ""
+            self.edit_cursor_pos = len(self.edit_buffer)
             self.editing = True
     
     def apply_edit(self) -> None:
