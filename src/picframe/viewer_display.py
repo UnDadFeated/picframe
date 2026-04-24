@@ -12,6 +12,30 @@ from picframe.video_streamer import VideoStreamer, VIDEO_EXTENSIONS, VideoFrameE
 
 
 # utility functions with no dependency on ViewerDisplay properties
+def _clamp_to_screen(x: float, y: float, sprite_w: float, sprite_h: float,
+                     screen_w: float, screen_h: float) -> tuple:
+    """Clamp sprite position to ensure it stays fully within screen bounds.
+    
+    pi3d coordinate system: x and y range from -screen_w/2 to +screen_w/2 and
+    -screen_h/2 to +screen_h/2 respectively, with (0,0) at center.
+    """
+    half_sw = screen_w / 2
+    half_sh = screen_h / 2
+    half_sprite_w = sprite_w / 2
+    half_sprite_h = sprite_h / 2
+    
+    # Clamp x so sprite left edge >= -half_sw and right edge <= half_sw
+    min_x = -half_sw + half_sprite_w
+    max_x = half_sw - half_sprite_w
+    x = max(min_x, min(max_x, x))
+    
+    # Clamp y so sprite bottom edge >= -half_sh and top edge <= half_sh
+    min_y = -half_sh + half_sprite_h
+    max_y = half_sh - half_sprite_h
+    y = max(min_y, min(max_y, y))
+    
+    return x, y
+
 def txt_to_bit(txt):
     txt_map = {"title": 1, "caption": 2, "name": 4, "date": 8, "location": 16, "folder": 32,
                "camera": 64, "lens": 128, "iso": 256, "aperture": 512, "exposure": 1024,
@@ -704,6 +728,14 @@ class ViewerDisplay:
             # Handle whether to draw the clock at top or bottom
             if self.__clock_top_bottom == "B":
                 y *= -1
+            # Clamp to screen bounds to prevent off-screen rendering
+            x, y = _clamp_to_screen(
+                x, y,
+                self.__clock_overlay.sprite.width,
+                self.__clock_overlay.sprite.height,
+                self.__display.width,
+                self.__display.height
+            )
             self.__clock_overlay.sprite.position(x, y, 0.1)
             self.__prev_clock_time = current_time
 
@@ -768,7 +800,16 @@ class ViewerDisplay:
             width=text_width,
             color=(255, 255, 255, int(200 * self.get_brightness()))
         )
-        self.__progress_countdown.sprite.position(x_pos + bar_width // 2 + 16, y_pos, 3.6)
+        x_pos_final = x_pos + bar_width // 2 + 16
+        # Clamp to screen bounds to prevent off-screen rendering
+        x_pos_final, y_pos = _clamp_to_screen(
+            x_pos_final, y_pos,
+            self.__progress_countdown.sprite.width,
+            self.__progress_countdown.sprite.height,
+            self.__display.width,
+            self.__display.height
+        )
+        self.__progress_countdown.sprite.position(x_pos_final, y_pos, 3.6)
         self.__progress_countdown.sprite.draw()
 
     def __draw_cache_indicator(self, current_file: Optional[str] = None):
@@ -792,6 +833,15 @@ class ViewerDisplay:
                     color=(255, 255, 255, 200)
                 )
             self.__initial_load_text.sprite.position(0, 0, 0.2)
+            # Clamp to screen bounds to prevent off-screen rendering
+            x, y = _clamp_to_screen(
+                0, 0,
+                self.__initial_load_text.sprite.width,
+                self.__initial_load_text.sprite.height,
+                self.__display.width,
+                self.__display.height
+            )
+            self.__initial_load_text.sprite.position(x, y, 0.2)
             self.__initial_load_text.sprite.set_alpha(0.8)
             self.__initial_load_text.sprite.draw()
 
@@ -827,11 +877,17 @@ class ViewerDisplay:
                 color=(255, 255, 255, 255)
             )
 
+
         if self.__cache_progress_sprite:
             sprite_w = self.__cache_progress_sprite.sprite.width
+            sprite_h = self.__cache_progress_sprite.sprite.height
             # Right-anchor: position centre so right edge sits at x_right
             x_right = (w // 2) - margin_x
             center_x = x_right - (sprite_w / 2)
+            # Clamp to screen bounds to prevent off-screen rendering
+            center_x, y_pos = _clamp_to_screen(
+                center_x, y_pos, sprite_w, sprite_h, w, h
+            )
             self.__cache_progress_sprite.sprite.position(center_x, y_pos, 3.6)
             self.__cache_progress_sprite.sprite.set_alpha(alpha)
             self.__cache_progress_sprite.sprite.draw()

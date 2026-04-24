@@ -11,6 +11,7 @@ WorkingDirectory=/home/pi
 Restart=on-failure
 RestartSec=5
 Environment=WAYLAND_DISPLAY=wayland-1
+ExecStartPre=/bin/sleep 20
 ExecStart=/home/pi/venv_picframe/bin/picframe
 
 [Install]

@@ -624,7 +624,7 @@ class ImageCache:
         return self.__month_in_window(month)
 
     def __get_seed_folders(self):
-        """Return likely hot folders first (Photos/Videos YYYY-MM near current month)."""
+        """Return likely hot folders first (Photos/Videos YYYY-MM)."""
         seeds = []
         for root_name in ("Photos", "Videos"):
             root_path = os.path.join(self.__picture_dir, root_name)
@@ -637,8 +637,6 @@ class ImageCache:
             for name in entries:
                 full = os.path.join(root_path, name)
                 if not os.path.isdir(full):
-                    continue
-                if not self.__folder_maybe_in_date_window(full):
                     continue
                 try:
                     mod_tm = int(os.stat(full).st_mtime)
@@ -812,10 +810,12 @@ class ImageCache:
             self.__purge_files = False
 
     def __filename_in_date_window(self, file_name):
-        """Return True if filename has YYYY-MM-DD_ prefix within +/- days, year-agnostic."""
+        """Return True if filename has YYYY-MM-DD_ prefix within +/- days, year-agnostic.
+        Files without YYYY-MM-DD_ prefix are considered always in-window (year-agnostic)."""
         m = ImageCache.DATE_PREFIX_RE.match(file_name)
         if m is None:
-            return False
+            # No date prefix = always considered in-window (year-agnostic)
+            return True
         try:
             month = int(m.group(2))
             day = int(m.group(3))
