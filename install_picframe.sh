@@ -242,8 +242,30 @@ if [ "$LAST_COMPLETED_STEP" -lt 7 ]; then
     AUTOSTART_SCRIPT="$HOME/start_picframe.sh"
     su - $USER -c "cat > $AUTOSTART_SCRIPT" <<'EOL'
 #!/bin/bash
-source $HOME/venv_picframe/bin/activate  # Activate Python virtual environment
-picframe &  # Start Picframe in the background
+# Use flock to prevent multiple instances
+exec 200>/tmp/picframe.lock
+flock -n 200 || { echo "Another instance is running"; exit 0; }
+
+# Kill any existing picframe processes first
+pkill -9 -f "/home/pi/venv_picframe/bin/python3.*picframe" 2>/dev/null
+
+# Wait for processes to fully terminate
+for i in 1 2 3 4 5 6 7 8 9 10; do
+    if ! pgrep -f "/home/pi/venv_picframe/bin/python3.*picframe" >/dev/null 2>&1; then
+        sleep 5  # Wait for display server to be ready
+        break
+    fi
+    sleep 1
+done
+
+# Final check - if still running, exit
+if pgrep -f "/home/pi/venv_picframe/bin/python3.*picframe" >/dev/null 2>&1; then
+    echo "Picframe still running, not starting another instance"
+    exit 0
+fi
+
+source $HOME/venv_picframe/bin/activate
+picframe
 EOL
 
     # Make the autostart script executable
@@ -282,38 +304,25 @@ fi
 if [ "$LAST_COMPLETED_STEP" -lt 8 ]; then
     log_message "Step 7: Configuring autostart for Picframe with labwc and setting up systemd service as user 'pi'..."
 
-    # Create labwc autostart directory and configuration file
-    su - $USER -c "mkdir -p $HOME/.config/labwc"
-    AUTOSTART_FILE="$HOME/.config/labwc/autostart"
-    su - $USER -c "cat > $AUTOSTART_FILE" <<'EOL'
-$HOME/start_picframe.sh
-EOL
-    log_message "Created labwc autostart configuration: $AUTOSTART_FILE"
-
-    # Create labwc rc.xml for window decorations
-    RC_XML_FILE="$HOME/.config/labwc/rc.xml"
-    su - $USER -c "cat > $RC_XML_FILE" <<'EOL'
-<windowRules>
-    <windowRule identifier="*" serverDecoration="no" />
-</windowRules>
-EOL
-    log_message "Created labwc rc.xml configuration for window decoration: $RC_XML_FILE"
-
-    # Create systemd user service to start labwc on boot
+    # Create systemd user service to start Picframe on boot
     su - $USER -c "mkdir -p $HOME/.config/systemd/user"
     SYSTEMD_SERVICE_FILE="$HOME/.config/systemd/user/picframe.service"
     su - $USER -c "cat > $SYSTEMD_SERVICE_FILE" <<'EOL'
 [Unit]
-Description=PictureFrame on Pi
+Description=Picframe slideshow
+After=graphical-session.target
 
 [Service]
-ExecStart=/usr/bin/labwc
-Restart=always
+Type=simple
+ExecStartPre=/bin/bash -c 'pkill -9 -f "picframe" 2>/dev/null; sleep 2'
+ExecStart=/home/pi/venv_picframe/bin/picframe
+Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=default.target
 EOL
-    log_message "Created systemd service for Picframe: $SYSTEMD_SERVICE_FILE"
+    log_message "Created systemd user service for Picframe: $SYSTEMD_SERVICE_FILE"
 
     # Enable the user systemd service for autostart
     su - $USER -c "systemctl --user enable picframe.service"
