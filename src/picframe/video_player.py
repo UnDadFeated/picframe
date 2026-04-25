@@ -87,8 +87,8 @@ class VideoPlayer:
             sdl2.SDL_DestroyWindow(self.window)
             return False
 
-        # Initialize VLC - enable audio
-        vlc_args = ['--quiet', '--verbose=0']
+        # Initialize VLC - enable audio with hardware acceleration if available
+        vlc_args = ['--quiet', '--verbose=0', '--avcodec-hw=any']
         try:
             self.instance = vlc.Instance(vlc_args)
             self.player = self.instance.media_player_new()

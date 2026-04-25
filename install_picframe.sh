@@ -172,7 +172,7 @@ fi
 if [ "$LAST_COMPLETED_STEP" -lt 4 ]; then
     check_internet_connection
     log_message "Step 4: Installing additional packages..."
-    sudo apt-get install git libsdl2-dev xwayland labwc wlr-randr vlc ffmpeg -y
+     sudo apt-get install git libsdl2-dev xwayland labwc wlr-randr vlc ffmpeg vlc-plugin-libav -y
     # Create Pictures and DeletedPictures directories
     su - $USER -c "mkdir -p $HOME/Pictures $HOME/DeletedPictures"
     log_message "Directories 'Pictures' and 'DeletedPictures' created."
