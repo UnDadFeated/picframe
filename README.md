@@ -1,5 +1,5 @@
-# Picframe v1.2.5 — Digital picture frame for Raspberry Pi
-
+# Picframe v1.2.6 — Digital picture frame for Raspberry Pi
+Picframe v1.2.6 — Digital picture frame for Raspberry Pi
 A feature-rich digital picture frame application for Raspberry Pi using pi3d, with video support, smart caching, MQTT integration, auto-update, and a modern web interface.
 
 ## Highlights
@@ -35,26 +35,46 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 
 ---
 
-## Release v1.2.5
+## Release v1.2.6
 
-- **Install script improvements**: Replaced all hardcoded paths and `$USER` references (`/home/pi`, `pi` user) with `$HOME` and `$USER` variables for better portability
+- **Smart cache for year-agnostic files**: Files without `YYYY-MM-DD_` prefix are now included in cache when `enable_smart_cache: true`, making all media (including archives with different naming) available
+- **Smoother slider controls**: Step size for 0-100 range reduced from 5 to 2 (e.g., video volume adjusts by 2 units instead of 5)
+- **Better editing UX**: Overlay displays current config value instead of minimum when edit buffer is empty, preventing confusing appearance of values jumping
+- **Duplicate instance prevention**: `start_picframe.sh` uses flock-based locking and kill-wait mechanism to prevent multiple picframe instances, fixing black screen issues
+- **Direct systemd user service**: Picframe starts directly via systemd user service (via labwc autostart) with proper process management
 
-## Release v1.2.4
+## Features
 
-- **Configuration Simplification**: Removed default `configuration.yaml` from source directory; only `~/picframe_data/config/configuration.yaml` is used
-- **Version bumped to 1.2.4**
+### Terminal Configuration TUI (`pfconfig`)
+- Reorganized with dedicated **Photos**, **Videos**, and **Database Management** submenus
+- 18 intuitive workflow groups for fast scanning
+- Intuitive choice selectors - see actual option names instead of numbers
+- Choice selectors with `< Left/Right >`, plus per-setting `[R]` revert
+- Run locally from `~/picframe_data/config/` using: `python3 pfconfig.py`
 
-## Release v1.2.3
+### Smart Cache (Year-Agnostic)
+- Files without `YYYY-MM-DD_` prefix are now cached when `enable_smart_cache: true`
+- Works with any naming convention (e.g., `2002-09_bridge.jpg`, `IMG_1234.png`)
+- Date range window (±15 days) applies only to files with date prefix
 
-- **Fixed boolean value handling in pfconfig.py TUI**: Normalized YAML boolean values to lowercase `true`/`false` standard for consistent saving and loading of boolean configuration options
-- **Removed configuration_example.yaml**: Simplified config distribution by removing the example file
+### Video Controls
+- Video ratio control (`video_ratio_videos`/`video_ratio_total`) - randomized X/Y ratio
+- Video cooldown (`video_quarantine_days`) - prevent repeats (default 330 days)
+- AV1 playback support
 
-## Release v1.2.2
+### Sliders & UI
+- Smoother step sizes: 1 for 0-50 range, 2 for 0-100 range (was 5)
+- Overlay shows current value when editing starts
+- No duplicate instances (flock-based locking)
 
-- **Configuration Reorganization**: Moved `configuration.yaml` from `~/picframe_data/config/` to `~/picframe_src/picframe/config/` directory
-- **Version bumped to 1.2.2**
+### Display & Web
+- Multi-mode display power: `vcgencmd` (Pi), `xset` (X11), `wlr-randr` (Wayland)
+- Web UI at `http://<pi>:9000` with live cache progress
+- MQTT integration for Home Assistant
 
-Refer to the Git history for the full set of changes.
+### Auto-Update
+- Automatic updates from your GitHub fork
+- Idempotent DB schema updates
 
 ---
 
