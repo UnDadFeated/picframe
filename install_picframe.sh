@@ -242,30 +242,20 @@ if [ "$LAST_COMPLETED_STEP" -lt 7 ]; then
     AUTOSTART_SCRIPT="$HOME/start_picframe.sh"
     su - $USER -c "cat > $AUTOSTART_SCRIPT" <<'EOL'
 #!/bin/bash
-# Use flock to prevent multiple instances
-exec 200>/tmp/picframe.lock
-flock -n 200 || { echo "Another instance is running"; exit 0; }
+# Kill any existing picframe processes
+pkill -9 -f picframe 2>/dev/null
+sleep 3
 
-# Kill any existing picframe processes first
-pkill -9 -f "/home/pi/venv_picframe/bin/python3.*picframe" 2>/dev/null
-
-# Wait for processes to fully terminate
-for i in 1 2 3 4 5 6 7 8 9 10; do
-    if ! pgrep -f "/home/pi/venv_picframe/bin/python3.*picframe" >/dev/null 2>&1; then
-        sleep 5  # Wait for display server to be ready
-        break
-    fi
+# Wait for clean shutdown
+for i in 1 2 3 4 5; do
+    pgrep -f picframe >/dev/null 2>&1 || break
     sleep 1
 done
 
-# Final check - if still running, exit
-if pgrep -f "/home/pi/venv_picframe/bin/python3.*picframe" >/dev/null 2>&1; then
-    echo "Picframe still running, not starting another instance"
-    exit 0
-fi
-
+# Start picframe
 source $HOME/venv_picframe/bin/activate
-picframe
+nohup picframe > /dev/null 2>&1 &
+disown
 EOL
 
     # Make the autostart script executable
