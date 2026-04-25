@@ -1,5 +1,5 @@
-# Picframe v1.2.6 — Digital picture frame for Raspberry Pi
-Picframe v1.2.6 — Digital picture frame for Raspberry Pi
+# Picframe v1.2.7 — Digital picture frame for Raspberry Pi
+Picframe v1.2.7 — Digital picture frame for Raspberry Pi
 A feature-rich digital picture frame application for Raspberry Pi using pi3d, with video support, smart caching, MQTT integration, auto-update, and a modern web interface.
 
 ## Highlights
@@ -18,7 +18,7 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 - Point to your fork's branch and URL for seamless updates
 
 ### Playback & Caching
-- Photo + video support with AV1 playback
+- Photo + video support with enhanced AV1 playback (VLC hardware acceleration + FFmpeg fallback)
 - **Video ratio control** (`video_ratio_videos`/`video_ratio_total`) - randomized X/Y ratio, e.g., 1/10 = 1 video per 10 media items
 - **Photo cooldown** (`photo_quarantine_days`) - fixed days before a photo can be shown again (default 330 days)
 - **Video cooldown** (`video_quarantine_days`) - fixed days before a video can be shown again (default 330 days)
@@ -35,8 +35,10 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 
 ---
 
-## Release v1.2.6
+## Release v1.2.7
 
+- **Enhanced AV1 playback**: Added VLC hardware acceleration support (--avcodec-hw=any) and FFmpeg fallback mechanism
+- **Adaptive video timeouts**: Extended timeout to 30s for AV1 videos (10s for other codecs) with improved error reporting
 - **Smart cache for year-agnostic files**: Files without `YYYY-MM-DD_` prefix are now included in cache when `enable_smart_cache: true`, making all media (including archives with different naming) available
 - **Smoother slider controls**: Step size for 0-100 range reduced from 5 to 2 (e.g., video volume adjusts by 2 units instead of 5)
 - **Better editing UX**: Overlay displays current config value instead of minimum when edit buffer is empty, preventing confusing appearance of values jumping
@@ -60,7 +62,7 @@ A feature-rich digital picture frame application for Raspberry Pi using pi3d, wi
 ### Video Controls
 - Video ratio control (`video_ratio_videos`/`video_ratio_total`) - randomized X/Y ratio
 - Video cooldown (`video_quarantine_days`) - prevent repeats (default 330 days)
-- AV1 playback support
+- Enhanced AV1 playback with VLC hardware acceleration and FFmpeg fallback
 
 ### Sliders & UI
 - Smoother step sizes: 1 for 0-50 range, 2 for 0-100 range (was 5)
