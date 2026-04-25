@@ -488,8 +488,10 @@ class PicframeConfigEditor:
             range_size = max_val - min_val
             if range_size <= 10:
                 step = 1
+            elif range_size <= 50:
+                step = 1
             elif range_size <= 100:
-                step = 5
+                step = 2
             elif range_size <= 1000:
                 step = 10
             else:
@@ -514,11 +516,12 @@ class PicframeConfigEditor:
             key_path = items[self.current_item_idx]
             config_item = MENU_STRUCTURE[section][key_path]
             
-            # For int/float fields, clear buffer on entry so typing starts fresh
+            # Initialize edit buffer - for text fields, pre-fill with current value
+            # for int/float fields, start empty so typing begins fresh (slider uses current_value as base)
+            current_value = get_nested_value(self.config, key_path)
             if config_item["type"] in ("int", "float"):
                 self.edit_buffer = ""
             else:
-                current_value = get_nested_value(self.config, key_path)
                 self.edit_buffer = str(current_value) if current_value is not None else ""
                 
             self.editing_key_path = key_path
@@ -780,13 +783,16 @@ class PicframeConfigEditor:
             min_val = config_item.get("min", 0)
             max_val = config_item.get("max", 100)
             slider_w = overlay_w - 8
-            if config_item["type"] == "int":
-                display_val = int(float(self.edit_buffer)) if self.edit_buffer else min_val
-            else:
+            if self.edit_buffer:
+                # Use edit buffer value when actively editing
                 try:
-                    display_val = float(self.edit_buffer) if self.edit_buffer else min_val
+                    display_val = int(float(self.edit_buffer)) if config_item["type"] == "int" else float(self.edit_buffer)
                 except (ValueError, TypeError):
-                    display_val = min_val
+                    # Fall back to current config value if edit buffer is invalid
+                    display_val = current_value if current_value is not None else min_val
+            else:
+                # No edit buffer - use current config value (not min_val)
+                display_val = current_value if current_value is not None else min_val
             
             normalized = (display_val - min_val) / (max_val - min_val) if max_val != min_val else 0
             normalized = max(0.0, min(1.0, normalized))
